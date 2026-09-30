@@ -26,14 +26,17 @@ for u in UNITS:
     for l in u["lessons"]:
         l = dict(l)
         l["body_html"] = md(l["body"]); del l["body"]
-        l["work_html"] = md(l["work"]); del l["work"]
+        l["work_html"] = md(l["work"])
         l["talk_html"] = md(l["talk"]); del l["talk"]
         l["exercises"] = [dict(e, prompt_html=md(e["prompt"])) for e in l["exercises"]]
         for i, e in enumerate(l["exercises"]):
             del e["prompt"]
             if not e.get("difficulty"):
                 e["difficulty"] = min(3, 1 + i) if len(l["exercises"]) > 2 else min(3, 1 + i + (1 if l.get("kind") or l.get("timed") else 0))
+                if (l.get("work") or l["id"].startswith("u8")) and i == len(l["exercises"]) - 1:
+                    e["difficulty"] = 3
         l["quiz"] = [dict(x, q_html=md(x["q"])) for x in l["quiz"]]
+        del l["work"]
         uu["lessons"].append(l)
     out.append(uu)
 data = json.dumps({"units": out}, ensure_ascii=False)
