@@ -60,7 +60,7 @@ with sync_playwright() as p:
     pg.wait_for_function("() => document.querySelector('.card.exercise .banner') && document.querySelector('.card.exercise .banner').textContent.includes('passed!')", timeout=90000)
     log("[OFFLINE] solution check:", card.locator(".banner").inner_text(), "| checks:", card.locator(".results li.pass").count(), "pass /", card.locator(".results li").count())
     log("[OFFLINE] lesson scrollWidth", pg.evaluate("document.documentElement.scrollWidth"))
-    card.locator(".banner").scroll_into_view_if_needed(); pg.evaluate("window.scrollBy(0, -360)")
+    card.locator(".banner").evaluate("e => e.scrollIntoView({block: 'center'})")
     shot(pg, "03-exercise-checked-offline")
     pg.evaluate("window.scrollTo(0,0)"); shot(pg, "02-lesson-offline")
 
