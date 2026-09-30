@@ -23,7 +23,7 @@ with sync_playwright() as p:
     old = {"version": 1, "completed": {"u1l1": iso(yday - dt.timedelta(days=2)), "u1l2": iso(yday - dt.timedelta(days=1)), "u1l3": iso(yday)},
            "ex": {"u1l1:0": {"attempts": 1, "passed": True, "passedOn": iso(yday - dt.timedelta(days=2))}}, "quiz": {}, "last": "u1l3", "days": [iso(yday)], "created": "2026-10-01"}
     c, pg = ctx_at(now)
-    pg.goto(URL); pg.evaluate("(o) => localStorage.setItem('ppr.progress.v1', JSON.stringify(o))", old); pg.reload()
+    pg.goto(URL); pg.wait_for_selector(".streakcard"); pg.wait_for_timeout(500); pg.evaluate("(o) => localStorage.setItem('ppr.progress.v1', JSON.stringify(o))", old); pg.reload()
     pg.wait_for_selector(".streakcard")
     P = pg.evaluate("JSON.parse(localStorage.getItem('ppr.progress.v1'))")
     check(P["completed"] == old["completed"] and P["ex"]["u1l1:0"]["passed"], "migration keeps completed lessons and exercises")
@@ -53,7 +53,7 @@ with sync_playwright() as p:
     days = [iso(dt.date(2026, 10, 5) - dt.timedelta(days=i)) for i in range(7)]  # Sep 29..Oct 5, missed Oct 6
     game = {"v": 1, "active": {d: {"lessons": 1, "review": False} for d in days}, "frozen": {}, "freezes": 1, "best": 7, "xp": 700, "xpByDay": {d: 100 for d in days}, "badges": {}, "awarded": {}, "lastSeen": "2026-10-05", "notices": []}
     prog = {"version": 1, "completed": {}, "ex": {}, "quiz": {}, "days": days, "game": game}
-    pg.goto(URL); pg.evaluate("(o) => localStorage.setItem('ppr.progress.v1', JSON.stringify(o))", prog); pg.reload(); pg.wait_for_selector(".streakcard")
+    pg.goto(URL); pg.wait_for_selector(".streakcard"); pg.wait_for_timeout(500); pg.evaluate("(o) => localStorage.setItem('ppr.progress.v1', JSON.stringify(o))", prog); pg.reload(); pg.wait_for_selector(".streakcard")
     check(pg.locator(".notice.freeze").count() == 1 and "2026-10-06" in pg.locator(".notice.freeze").inner_text(), "freeze-used notice for the missed day")
     check(pg.locator(".sc-num b").inner_text() == "7" and "0" in pg.locator(".sc-side").inner_text(), "streak kept at 7, freezes now 0")
     check(pg.locator(".hm.frozen").count() >= 2, "heatmap marks the frozen day")
