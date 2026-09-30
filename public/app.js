@@ -447,7 +447,13 @@ function route() {
 let updating = false, reloaded = false;
 function showUpdate(reg) {
   const bar = $("#updatebar"); bar.hidden = false;
-  bar.onclick = () => { if (!reg.waiting) return; bar.textContent = "Updating…"; updating = true; reg.waiting.postMessage("skipWaiting"); };
+  bar.onclick = async () => {
+    if (updating) return;
+    bar.textContent = "Updating…"; updating = true;
+    let w = reg.waiting;
+    for (let i = 0; !w && i < 20; i++) { await new Promise(r => setTimeout(r, 250)); w = reg.waiting; }
+    if (w) w.postMessage("skipWaiting"); else location.reload(); // user-initiated, so never a loop
+  };
 }
 async function setupSW() {
   if (!("serviceWorker" in navigator)) { checkOffline(); return; }
@@ -458,7 +464,9 @@ async function setupSW() {
   try {
     swReg = await navigator.serviceWorker.register("sw.js");
     if (swReg.waiting && navigator.serviceWorker.controller) showUpdate(swReg);
-    swReg.addEventListener("updatefound", () => { const nw = swReg.installing; nw && nw.addEventListener("statechange", () => { if (nw.state === "installed" && navigator.serviceWorker.controller) showUpdate(swReg); }); });
+    const track = (nw) => nw && nw.addEventListener("statechange", () => { if (nw.state === "installed" && navigator.serviceWorker.controller) showUpdate(swReg); });
+    if (swReg.installing && navigator.serviceWorker.controller) track(swReg.installing);
+    swReg.addEventListener("updatefound", () => track(swReg.installing));
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && navigator.onLine) swReg.update().catch(() => {}); });
   } catch (e) { console.warn("SW registration failed", e); }
   checkOffline();
