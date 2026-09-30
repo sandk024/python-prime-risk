@@ -289,18 +289,100 @@ function ensureGame(silent) {
   const b = S.evaluateBadges(P.game, badgeCtx(), todayStr()); // badges already deserved by past progress: award quietly
   if (!silent) b.forEach(x => queueToast(`🏅 Badge unlocked: ${x.def.title}`));
 }
+// ---------- tangible rewards ----------
+const rewardQ = [];
+const money = (n) => n == null ? "" : n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: n % 1 ? 2 : 0 });
+const rwItem = (id) => P.game.rewards.items.find(x => x.id === id);
+const rwDate = (d) => d === "earlier" ? "earlier" : d;
+const unlockMsg = (r) => `Reward unlocked: ${r.name} - ask Chief of Staff to line it up`;
+function claim(id) { if (S.claimReward(P.game, id, todayStr())) { save(); toast(`✓ Claimed: ${rwItem(id).name}`); } }
+function showRewardModal() {
+  if ($(".rw-modal")) return;
+  const id = rewardQ.shift(); if (!id) return; const r = rwItem(id); if (!r) return;
+  if (!reducedMotion()) confetti();
+  const close = () => { m.remove(); if (rewardQ.length) setTimeout(showRewardModal, 300); else if (!location.hash || location.hash === "#/" || location.hash.startsWith("#/rewards")) route(); };
+  const m = h("div", { class: "rw-modal", role: "dialog", "aria-modal": "true", "aria-labelledby": "rw-title" },
+    h("div", { class: "rw-box" },
+      h("div", { class: "rw-icon", "aria-hidden": "true" }, r.icon || "🎁"),
+      h("div", { class: "small muted" }, `🔥 ${r.days}-day streak`),
+      h("h2", { id: "rw-title" }, unlockMsg(r)),
+      r.note ? h("p", { class: "small muted" }, r.note) : null,
+      r.price != null ? h("p", { class: "small" }, `Budget: ${money(r.price)}`) : null,
+      h("div", { class: "row" }, h("button", { class: "btn ok", onclick: () => { claim(id); close(); } }, "Mark claimed"), h("button", { class: "btn", onclick: close }, "Later"))));
+  document.body.append(m); m.querySelector(".btn.ok").focus();
+}
+function rewardsCard() {
+  const g = P.game, R = g.rewards, nx = S.nextReward(g, todayStr());
+  const ready = R.items.filter(r => S.rewardState(g, r.id) === "unlocked");
+  const claimed = R.items.filter(r => R.claimed[r.id]).length;
+  return h("section", { class: "card rewardscard" },
+    h("div", { class: "row between" }, h("b", {}, "🎁 Rewards"), h("span", { class: "small muted" }, `${claimed}/${R.items.length} claimed`)),
+    ...ready.map(r => h("div", { class: "rw-ready" },
+      h("div", {}, h("b", {}, `${r.icon} ${unlockMsg(r)}`), h("div", { class: "small muted" }, `Unlocked ${rwDate(R.unlocked[r.id])} · ${r.days}-day streak`)),
+      h("button", { class: "btn ok mini", onclick: () => { claim(r.id); route(); } }, "Mark claimed"))),
+    nx ? h("div", { class: "rw-next" },
+      h("div", { class: "rw-icon sm", "aria-hidden": "true" }, nx.item.icon),
+      h("div", { class: "rw-main" },
+        h("div", { class: "small muted" }, "Next reward"),
+        h("div", { class: "rw-name" }, nx.item.name),
+        h("div", { class: "small muted" }, nx.toGo ? `${nx.toGo} day${nx.toGo === 1 ? "" : "s"} to go · ${nx.current}/${nx.item.days}-day streak` : "Unlocks with today's goal"),
+        h("div", { class: "bar rw" }, h("i", { style: `width:${(nx.pct * 100).toFixed(1)}%` })))) :
+      h("div", { class: "small muted mt8" }, "All four rewards unlocked. Legendary."),
+    linkBtn("#/rewards", "All rewards →", "btn block mt8"));
+}
+function viewRewards(editId) {
+  const g = P.game, R = g.rewards, cur = S.streakInfo(g, todayStr()).current;
+  const row = (r) => {
+    const st = S.rewardState(g, r.id);
+    if (editId === r.id) {
+      const f = (label, name, val, attrs = {}) => h("label", { class: "rw-field" }, h("span", { class: "small muted" }, label), h("input", { name, value: val ?? "", ...attrs }));
+      const err = h("div", { class: "small bad", role: "alert" });
+      const form = h("form", { class: "card rw-item editing", onsubmit: (ev) => { ev.preventDefault();
+          const fd = new FormData(form); const res = S.editReward(g, r.id, { name: fd.get("name"), note: fd.get("note"), link: fd.get("link"), price: fd.get("price") });
+          if (!res.ok) { err.textContent = res.error; return; } save(); toast("✓ Reward saved"); viewRewards(); } },
+        h("div", { class: "small muted" }, `${r.icon} ${r.days}-day streak reward`),
+        f("Name", "name", r.name, { required: true, maxlength: 80 }), f("Note (optional)", "note", r.note, { maxlength: 200 }),
+        f("Link (optional)", "link", r.link, { type: "url", inputmode: "url", placeholder: "https://…" }),
+        f("Price (optional)", "price", r.price ?? "", { inputmode: "decimal", placeholder: "e.g. 150" }), err,
+        h("div", { class: "row" }, h("button", { class: "btn primary", type: "submit" }, "Save"), h("button", { class: "btn", type: "button", onclick: () => viewRewards() }, "Cancel"),
+          h("button", { class: "btn ghost", type: "button", onclick: () => { S.resetReward(g, r.id); save(); viewRewards(); } }, "Default")));
+      return form;
+    }
+    return h("div", { class: `card rw-item ${st}` },
+      h("div", { class: "rw-head" }, h("div", { class: "rw-icon sm", "aria-hidden": "true" }, st === "locked" ? "🔒" : r.icon),
+        h("div", { class: "rw-main" }, h("div", { class: "small muted" }, `${r.days}-day streak`), h("div", { class: "rw-name" }, r.name),
+          r.note ? h("div", { class: "small muted" }, r.note) : null,
+          h("div", { class: "small" }, r.price != null ? money(r.price) : null, r.price != null && r.link ? " · " : null, r.link ? h("a", { href: r.link, target: "_blank", rel: "noopener" }, "link ↗") : null)),
+        h("span", { class: `pill st-${st}` }, st === "claimed" ? "Claimed" : st === "unlocked" ? "Unlocked" : "Locked")),
+      st === "locked" ? h("div", { class: "rw-prog" }, h("div", { class: "bar rw" }, h("i", { style: `width:${(100 * Math.min(1, cur / r.days)).toFixed(1)}%` })), h("span", { class: "small muted" }, `${Math.min(cur, r.days)}/${r.days} · ${Math.max(0, r.days - cur)} to go`)) : null,
+      st === "unlocked" ? h("div", { class: "small ok" }, `Unlocked ${rwDate(R.unlocked[r.id])} - ask Chief of Staff to line it up`) : null,
+      st === "claimed" ? h("div", { class: "small ok" }, `✓ Claimed ${R.claimed[r.id]}`) : null,
+      h("div", { class: "row mt8" },
+        st === "unlocked" ? h("button", { class: "btn ok", onclick: () => { claim(r.id); viewRewards(); } }, "Mark claimed") : null,
+        st === "claimed" ? h("button", { class: "btn ghost mini", onclick: () => { S.unclaimReward(g, r.id); save(); viewRewards(); } }, "Undo claim") : null,
+        h("button", { class: "btn mini", onclick: () => viewRewards(r.id) }, "Edit")));
+  };
+  app.replaceChildren(
+    h("nav", { class: "crumbs small muted" }, h("a", { href: "#/" }, "← Home")),
+    h("h1", {}, "🎁 Rewards"),
+    h("p", { class: "small muted" }, `Real rewards for your streak. Each unlocks once when your current streak reaches its milestone (freezes keep a streak alive) and stays unlocked even if the streak later breaks. Current streak: ${cur} day${cur === 1 ? "" : "s"}.`),
+    ...R.items.map(row));
+  if (editId) app.querySelector("input[name=name]")?.focus();
+}
 function checkDayRollover() {
   const t = todayStr(); if (t === dayNow) return;
   dayNow = t; S.reconcile(P.game, t); save();
-  if (!location.hash || location.hash === "#/" || location.hash.startsWith("#/badges")) route();
+  if (!location.hash || location.hash === "#/" || location.hash.startsWith("#/badges") || location.hash.startsWith("#/rewards")) route();
 }
 function handle(events) {
   const g = P.game;
   for (const e of events) {
-    if (e.type === "goal" && g.goalCelebrated !== todayStr()) { g.goalCelebrated = todayStr(); celebrate(e.streak); }
+    if (e.type === "goal" && g.goalCelebrated !== todayStr()) { g.goalCelebrated = todayStr(); celebrate(e.streak, !events.some(x => x.type === "reward")); }
     if (e.type === "freezeEarned") queueToast(`❄️ Streak freeze earned (${e.freezes}/${S.FREEZE_CAP}) for your ${e.streak}-day streak`);
-    if (e.type === "levelUp") queueToast(`📈 Promoted to ${e.title}!`);
+    if (e.type === "levelUp") queueToast(`Level up: ${e.title}`, 2000);
+    if (e.type === "reward") rewardQ.push(e.id);
   }
+  if (rewardQ.length) setTimeout(showRewardModal, 900);
   for (const b of S.evaluateBadges(g, badgeCtx(), todayStr())) queueToast(`🏅 Badge unlocked: ${b.def.icon} ${b.def.title}`, 3200);
   save();
 }
@@ -314,9 +396,9 @@ function queueToast(msg, ms = 2600) {
   next();
 }
 const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
-function celebrate(streakN) {
+function celebrate(streakN, burst = true) {
   queueToast(`🔥 Daily goal met: ${streakN}-day streak!`, 3000);
-  if (!reducedMotion()) confetti();
+  if (burst && !reducedMotion()) confetti(); // skipped when a reward unlock brings its own celebration
 }
 function confetti() {
   const c = h("canvas", { class: "confetti", "aria-hidden": "true" }); document.body.append(c);
@@ -370,18 +452,14 @@ function heatmap(g, today, weeks = 20) {
 function streakCard() {
   const g = P.game, t = todayStr(), s = S.streakInfo(g, t), lv = S.levelFor(g.xp);
   const defs = S.badgeDefs(badgeCtx()); const earned = defs.filter(d => g.badges[d.id]).length;
-  const nextMs = S.MILESTONES.find(m => m > s.current);
   return h("section", { class: `card streakcard${s.todayDone ? " done" : ""}${s.current ? " lit" : ""}` },
     h("div", { class: "sc-top" },
       h("div", { class: "flame", "aria-hidden": "true" }, "🔥"),
-      h("div", { class: "sc-num" }, h("b", {}, s.current), h("span", {}, `day streak${nextMs ? ` · next badge at ${nextMs}` : ""}`)),
+      h("div", { class: "sc-num" }, h("b", {}, s.current), h("span", {}, "day streak")),
       h("div", { class: "sc-side" }, h("div", {}, h("span", { class: "muted" }, "Best "), h("b", {}, s.best)), h("div", { title: "Streak freezes: earn 1 per 7-day streak (max 2). Each covers one missed day automatically." }, "❄️ ", h("b", {}, g.freezes), h("span", { class: "muted" }, `/${S.FREEZE_CAP}`)))),
     h("div", { class: `goal${s.todayDone ? " ok" : ""}` }, s.todayDone ? "✓ Today's goal done. See you tomorrow!" : "○ Today's goal: finish 1 lesson or today's Review"),
-    h("div", { class: "level" },
-      h("div", { class: "row between small" }, h("b", {}, `💼 ${lv.title}`), h("span", { class: "muted" }, lv.next ? `${g.xp.toLocaleString()} / ${lv.next.toLocaleString()} XP → ${lv.nextTitle}` : `${g.xp.toLocaleString()} XP · top of the desk`)),
-      h("div", { class: "bar xp" }, h("i", { style: `width:${(lv.pct * 100).toFixed(1)}%` }))),
     heatmap(g, t),
-    linkBtn("#/badges", `🏅 Badges ${earned}/${defs.length} →`, "btn block mt8"));
+    h("div", { class: "row between level-line" }, h("span", { class: "small muted" }, `${g.xp.toLocaleString()} XP · level: ${lv.title}`), h("a", { class: "small", href: "#/badges" }, `Badges ${earned}/${defs.length} →`)));
 }
 
 function viewBadges() {
@@ -394,16 +472,14 @@ function viewBadges() {
   const groups = [...new Set(defs.map(d => d.group))];
   app.replaceChildren(
     h("nav", { class: "crumbs small muted" }, h("a", { href: "#/" }, "← Home")),
-    h("h1", {}, "🏅 Badges & levels"),
-    h("div", { class: "card levelcard" },
-      h("div", { class: "row between" }, h("b", {}, `💼 ${lv.title}`), h("span", { class: "small muted" }, `${g.xp.toLocaleString()} XP`)),
-      h("div", { class: "bar xp big" }, h("i", { style: `width:${(lv.pct * 100).toFixed(1)}%` })),
-      h("div", { class: "small muted mt8" }, lv.next ? `${(lv.next - g.xp).toLocaleString()} XP to ${lv.nextTitle}` : "You've reached the top of the desk."),
-      h("ol", { class: "ladder small" }, S.LEVELS.map(([x, t], i) => h("li", { class: i < lv.index ? "past" : i === lv.index ? "now" : "" }, h("span", {}, t), h("span", { class: "muted" }, `${x.toLocaleString()} XP`)))),
-      h("details", { class: "small muted" }, h("summary", {}, "How XP works"),
-        h("p", {}, `Lesson ${S.XP.lesson} · checkpoint ${S.XP.checkpoint} · final ${S.XP.final} · exercise ${S.XP.exPerStar} per ★ (+${S.XP.noPeek} if you didn't view the solution) · review exercise ${S.XP.reviewEx} · review question ${S.XP.reviewQuiz} · full review set +${S.XP.reviewSet}.`))),
+    h("h1", {}, "🏅 Badges"),
     h("div", { class: "card row between small" }, h("span", {}, `🔥 ${s.current}-day streak · best ${s.best}`), h("span", {}, `❄️ ${g.freezes}/${S.FREEZE_CAP} freezes`), h("b", {}, `${earned}/${defs.length} earned`)),
+    linkBtn("#/rewards", "🎁 See your real rewards →", "btn block"),
     ...groups.flatMap(gr => [h("div", { class: "sec-title" }, gr), h("div", { class: "badge-grid" }, defs.filter(d => d.group === gr).map(tile))]),
+    h("details", { class: "card levelcard small muted" },
+      h("summary", {}, `XP ${g.xp.toLocaleString()} · level: ${lv.title}${lv.next ? ` (${(lv.next - g.xp).toLocaleString()} XP to ${lv.nextTitle})` : ""}`),
+      h("ol", { class: "ladder small" }, S.LEVELS.map(([x, t], i) => h("li", { class: i < lv.index ? "past" : i === lv.index ? "now" : "" }, h("span", {}, t), h("span", { class: "muted" }, `${x.toLocaleString()} XP`)))),
+      h("p", {}, `How XP works: lesson ${S.XP.lesson} · checkpoint ${S.XP.checkpoint} · final ${S.XP.final} · exercise ${S.XP.exPerStar} per ★ (+${S.XP.noPeek} if you didn't view the solution) · review exercise ${S.XP.reviewEx} · review question ${S.XP.reviewQuiz} · full review set +${S.XP.reviewSet}.`)),
   );
 }
 
@@ -428,6 +504,7 @@ function viewHome() {
       h("div", { class: "rv-l" }, h("b", {}, "🔁 Daily review"),
         h("span", { class: "small muted" }, rc.total ? (left ? `${left} to do today: missed exercises + spaced repeats` : "All done for today ✓ Tap for extra practice") : "Exercises come back 1, 3, 7, 14 and 30 days after you pass them")),
       h("span", { class: "pill" }, left ? String(left) : "✓")),
+    rewardsCard(),
     streakCard(),
     h("div", { class: "sec-title" }, "Curriculum ", h("span", { class: "legend" }, `${nDone}/${LESSONS.length} lessons · ${nEx}/${totalEx} exercises · ${P.days.length} days studied`)),
     ...DATA.units.map((u, i) => {
@@ -546,7 +623,7 @@ function viewSettings() {
   app.replaceChildren(h("nav", { class: "crumbs small" }, h("a", { href: "#/" }, "← Home")), h("h1", {}, "Progress & settings"),
     h("div", { class: "card" }, h("h3", {}, "Theme"), seg),
     h("div", { class: "card" }, h("h3", {}, "Memory strength"), h("p", { class: "small muted" }, `Missed: ${missed} · learning (≤3 days): ${boxes[0] + boxes[1] + boxes[2]} · solid (7–14 days): ${boxes[3] + boxes[4]} · mastered (30+ days): ${boxes[5] + boxes[6]}`)),
-    h("div", { class: "card" }, h("h3", {}, "Export progress"), h("p", { class: "small muted" }, "Progress lives on this device only (localStorage). The export includes lessons, exercises, review schedule, streak, XP and badges."),
+    h("div", { class: "card" }, h("h3", {}, "Export progress"), h("p", { class: "small muted" }, "Progress lives on this device only (localStorage). The export includes lessons, exercises, review schedule, streak, rewards (including your edits and claim dates), XP and badges."),
       h("div", { class: "row" },
         h("button", { class: "btn", type: "button", onclick: () => { const blob = new Blob([JSON.stringify(P, null, 1)], { type: "application/json" }); const a = h("a", { href: URL.createObjectURL(blob), download: `pyrisk-progress-${todayStr()}.json` }); document.body.append(a); a.click(); a.remove(); } }, "⬇ Download JSON"),
         h("button", { class: "btn", type: "button", onclick: async () => { try { await navigator.clipboard.writeText(JSON.stringify(P)); toast("Copied progress JSON"); } catch { ta.value = JSON.stringify(P); toast("Copy it from the box below"); } } }, "📋 Copy"))),
@@ -566,7 +643,7 @@ function route() {
   $("#kbdbar").hidden = true; activeView = null; pyListeners.clear();
   const hash = location.hash || "#/"; const m = hash.match(/^#\/l\/(\w+)/);
   try {
-    if (m) viewLesson(m[1]); else if (hash.startsWith("#/review")) viewReview(); else if (hash.startsWith("#/badges")) viewBadges(); else if (hash.startsWith("#/projects")) viewProjects(); else if (hash.startsWith("#/settings")) viewSettings(); else viewHome();
+    if (m) viewLesson(m[1]); else if (hash.startsWith("#/review")) viewReview(); else if (hash.startsWith("#/badges")) viewBadges(); else if (hash.startsWith("#/rewards")) viewRewards(); else if (hash.startsWith("#/projects")) viewProjects(); else if (hash.startsWith("#/settings")) viewSettings(); else viewHome();
   } catch (e) { console.error(e); app.replaceChildren(h("div", { class: "card" }, h("b", {}, "Something went wrong rendering this page."), h("pre", { class: "out err" }, String(e && e.stack || e)), linkBtn("#/", "← Home"))); }
   window.scrollTo(0, 0);
 }

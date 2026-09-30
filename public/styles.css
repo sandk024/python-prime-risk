@@ -95,7 +95,7 @@ h2 { font-size: 20px; } h3 { font-size: 17px; }
 .kbdbar::-webkit-scrollbar { display: none; }
 .kbdbar button { flex: 0 0 auto; min-width: 44px; height: 42px; border-radius: 9px; border: 1px solid var(--line); background: var(--card2); color: var(--fg); font: 600 17px ui-monospace, Menlo, monospace; padding: 0 10px; touch-action: manipulation; }
 .kbdbar button.w { font: 600 14px -apple-system, sans-serif; }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; z-index: 60; font-size: 15px; max-width: 90vw; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(24px + env(safe-area-inset-bottom)); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 999px; z-index: 70; font-size: 15px; max-width: 90vw; }
 .navrow { display: flex; gap: 8px; margin-top: 16px; }
 .navrow .btn { flex: 1; }
 textarea.io { width: 100%; min-height: 120px; font: 13px ui-monospace, Menlo, monospace; background: var(--code-bg); color: var(--fg); border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
@@ -209,4 +209,35 @@ main > * { animation: fadein .18s ease both; }
 .confetti { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 80; }
 @media (min-width: 560px) { .badge-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (prefers-reduced-motion: reduce) { .streakcard.done .flame { animation: none; } }
+/* ---------- tangible rewards ---------- */
+.rewardscard { background: linear-gradient(165deg, color-mix(in srgb, var(--ok) 13%, var(--card)) 0%, var(--card) 60%); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+.rw-next, .rw-head { display: flex; gap: 12px; align-items: center; margin-top: 10px; }
+.rw-head { margin-top: 0; align-items: flex-start; }
+.rw-main { flex: 1; min-width: 0; }
+.rw-name { font-size: 18px; font-weight: 700; line-height: 1.25; margin: 2px 0; }
+.rw-icon { font-size: 56px; line-height: 1; }
+.rw-icon.sm { font-size: 36px; flex: 0 0 auto; }
+.bar.rw { height: 10px; margin-top: 8px; }
+.bar.rw i { background: linear-gradient(90deg, var(--ok), #7ee787); }
+.rw-ready { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--ok) 16%, var(--card2)); border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.rw-ready .btn { flex: 0 0 auto; }
+.rw-item.locked .rw-name { opacity: .8; }
+.rw-item.unlocked { border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); background: color-mix(in srgb, var(--ok) 8%, var(--card)); }
+.rw-item.claimed { opacity: .85; }
+.rw-prog { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+.rw-prog .bar { flex: 1; margin-top: 0; }
+.pill.st-locked { background: var(--card2); color: var(--muted); }
+.pill.st-unlocked { background: var(--ok); color: #fff; }
+.pill.st-claimed { background: color-mix(in srgb, var(--ok) 25%, var(--card2)); color: var(--ok); }
+.rw-item .pill { flex: 0 0 auto; width: auto; height: auto; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+.rw-field { display: grid; gap: 4px; margin-top: 10px; }
+.rw-field input { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--card2); color: var(--fg); width: 100%; box-sizing: border-box; }
+.rw-modal { position: fixed; inset: 0; z-index: 65; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.55); }
+.rw-box { width: min(420px, 100%); background: var(--card); border: 1px solid color-mix(in srgb, var(--ok) 50%, var(--line)); border-radius: 18px; padding: 22px; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,.4); animation: pop .35s ease-out; }
+.rw-box h2 { font-size: 20px; margin: 8px 0; }
+.rw-box .row { justify-content: center; margin-top: 12px; }
+@keyframes pop { from { transform: scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .rw-box { animation: none; } }
+.level-line { margin-top: 8px; align-items: center; }
+
 [hidden] { display: none !important; }
