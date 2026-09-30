@@ -1,4 +1,5 @@
 import { createEditor, getText, setText, insert, exec } from "./editor.js";
+import * as S from "./streak.js";
 
 const $ = (s, el = document) => el.querySelector(s);
 const h = (tag, attrs = {}, ...kids) => {
@@ -27,16 +28,11 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); return true; } catch
 
 // ---------- progress ----------
 const KEY = "ppr.progress.v1";
-const blank = () => ({ version: 1, completed: {}, ex: {}, quiz: {}, last: null, days: [], created: todayStr(), review: null, rcode: {} });
+const blank = () => ({ version: 1, completed: {}, ex: {}, quiz: {}, last: null, days: [], created: todayStr(), review: null, rcode: {}, game: null });
 let P = (() => { try { return Object.assign(blank(), JSON.parse(lsGet(KEY)) || {}); } catch { return blank(); } })();
 const save = () => lsSet(KEY, JSON.stringify(P));
 function touchDay() { const d = todayStr(); if (!P.days.includes(d)) { P.days.push(d); P.days.sort(); } save(); }
-function streak() {
-  const set = new Set(P.days); let n = 0; let d = todayStr();
-  if (!set.has(d)) d = addDays(d, -1); // streak still alive if studied yesterday
-  while (set.has(d)) { n++; d = addDays(d, -1); }
-  return n;
-}
+
 
 // ---------- theme ----------
 const applyTheme = () => { const t = lsGet("ppr.theme") || "dark"; const eff = t === "system" ? (matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark") : t; document.documentElement.dataset.theme = eff; const m = $('meta[name="theme-color"]'); if (m) m.content = eff === "light" ? "#f6f8fa" : "#0f1419"; };
@@ -258,7 +254,7 @@ function exerciseBlock(l, e, i, onPass, { review = false, onReview } = {}) {
   const title = h("h3", {}, `${review ? "" : `Exercise ${i + 1}: `}${e.title} `, stars(e.difficulty || 1), st().passed && !review ? h("span", { class: "okmark" }, " ✅") : null);
   const cb = codeBlock(review ? e.starter : e.starter, { key, tests: e.tests, setup: e.setup, allowCheck: true, store: review ? "review" : null, onResult: (r, check) => {
     if (!check) return;
-    const s = st(); s.attempts++; tries++;
+    const s = st(); s.attempts++; tries++; let gained = 0;
     const ok = !r.error && r.results.length && r.results.every(t => t.ok);
     if (review) {
       if (ok && !reported) {
@@ -267,15 +263,148 @@ function exerciseBlock(l, e, i, onPass, { review = false, onReview } = {}) {
         if (failedNow || sawNow) scheduleLapse(s); else schedulePass(s, false);
         s.lastReview = todayStr(); s.reviews = (s.reviews || 0) + 1;
         if (P.rcode) delete P.rcode[key];
+        gained = award(`rv:${todayStr()}:${key}`, S.XP.reviewEx);
         onReview && onReview();
       } else if (!ok) failedNow = true;
-    } else if (ok && !s.passed) { s.passed = true; s.passedOn = todayStr(); schedulePass(s, s.attempts === 1 && !s.sawSol); }
-    banner.replaceChildren(h("div", { class: `banner ${ok ? "ok" : "bad"}` }, ok ? `✅ All ${r.results.length} checks passed!${review ? (failedNow || sawNow ? " It'll come back tomorrow." : ` Next review in ${INTERVALS[s.box]} days.`) : ""}` : `${r.results.filter(t => t.ok).length}/${r.results.length} checks passed. Read the ❌ feedback, fix, and check again.`));
+    } else if (ok && !s.passed) { s.passed = true; s.passedOn = todayStr(); schedulePass(s, s.attempts === 1 && !s.sawSol); gained = award(`ex:${key}`, S.exerciseXP(e.difficulty, s.sawSol)); }
+    banner.replaceChildren(h("div", { class: `banner ${ok ? "ok" : "bad"}` }, ok ? `✅ All ${r.results.length} checks passed!${review ? (failedNow || sawNow ? " It'll come back tomorrow." : ` Next review in ${INTERVALS[s.box]} days.`) : ""}${gained ? `  +${gained} XP` : ""}` : `${r.results.filter(t => t.ok).length}/${r.results.length} checks passed. Read the ❌ feedback, fix, and check again.`));
     save(); updSol(); if (ok && !review) onPass && onPass();
   } });
   card.append(...[title, h("div", { class: "prose", html: e.prompt_html }), cb.el, banner, hintsBox, h("div", { class: "row" }, hintBtn, solBtn), solBox]);
   updSol();
   return card;
+}
+
+// ---------- streaks, XP, badges ----------
+let dayNow = todayStr();
+function badgeCtx() {
+  let clean3 = 0;
+  for (const [k, s] of Object.entries(P.ex)) { if (!s || !s.passed || s.sawSol) continue; const x = exOf(k); if (x && x.e.difficulty === 3) clean3++; }
+  return { units: DATA.units.map(u => ({ id: u.id, title: u.title, lessonIds: u.lessons.map(l => l.id) })), completed: P.completed, clean3, finalUnitId: "final" };
+}
+function ensureGame(silent) {
+  if (!P.game || typeof P.game !== "object") P.game = S.migrate(P, LESSONS, todayStr()); // one-time, loss-free migration
+  else P.game = S.normalize(P.game);
+  S.reconcile(P.game, todayStr());
+  const b = S.evaluateBadges(P.game, badgeCtx(), todayStr()); // badges already deserved by past progress: award quietly
+  if (!silent) b.forEach(x => queueToast(`🏅 Badge unlocked: ${x.def.title}`));
+}
+function checkDayRollover() {
+  const t = todayStr(); if (t === dayNow) return;
+  dayNow = t; S.reconcile(P.game, t); save();
+  if (!location.hash || location.hash === "#/" || location.hash.startsWith("#/badges")) route();
+}
+function handle(events) {
+  const g = P.game;
+  for (const e of events) {
+    if (e.type === "goal" && g.goalCelebrated !== todayStr()) { g.goalCelebrated = todayStr(); celebrate(e.streak); }
+    if (e.type === "freezeEarned") queueToast(`❄️ Streak freeze earned (${e.freezes}/${S.FREEZE_CAP}) for your ${e.streak}-day streak`);
+    if (e.type === "levelUp") queueToast(`📈 Promoted to ${e.title}!`);
+  }
+  for (const b of S.evaluateBadges(g, badgeCtx(), todayStr())) queueToast(`🏅 Badge unlocked: ${b.def.icon} ${b.def.title}`, 3200);
+  save();
+}
+function award(key, amount) { const ev = S.addXP(P.game, key, amount, todayStr()); handle(ev); return ev.length ? amount : 0; }
+function activity(kind) { handle(S.recordActivity(P.game, todayStr(), kind)); }
+
+const toastQ = []; let toastBusy = false;
+function queueToast(msg, ms = 2600) {
+  toastQ.push([msg, ms]); if (toastBusy) return;
+  const next = () => { const it = toastQ.shift(); if (!it) { toastBusy = false; return; } toastBusy = true; toast(it[0], it[1]); setTimeout(next, it[1] + 250); };
+  next();
+}
+const reducedMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+function celebrate(streakN) {
+  queueToast(`🔥 Daily goal met: ${streakN}-day streak!`, 3000);
+  if (!reducedMotion()) confetti();
+}
+function confetti() {
+  const c = h("canvas", { class: "confetti", "aria-hidden": "true" }); document.body.append(c);
+  const dpr = Math.min(2, devicePixelRatio || 1), W = innerWidth, H = innerHeight;
+  c.width = W * dpr; c.height = H * dpr; const ctx = c.getContext("2d"); ctx.scale(dpr, dpr);
+  const cs = getComputedStyle(document.documentElement);
+  const colors = ["--accent", "--ok", "--warn", "--work", "--bad"].map(v => cs.getPropertyValue(v).trim() || "#58a6ff");
+  const parts = Array.from({ length: 110 }, () => ({ x: W / 2 + (Math.random() - .5) * 80, y: H * .32, vx: (Math.random() - .5) * 9, vy: -Math.random() * 9 - 3, r: Math.random() * Math.PI, vr: (Math.random() - .5) * .3, w: 6 + Math.random() * 5, h: 3 + Math.random() * 4, col: colors[Math.floor(Math.random() * colors.length)] }));
+  const t0 = performance.now(), DUR = 2200;
+  (function frame(now) {
+    const t = now - t0; ctx.clearRect(0, 0, W, H); ctx.globalAlpha = Math.max(0, 1 - Math.max(0, t - DUR * .6) / (DUR * .4));
+    for (const p of parts) { p.vy += .28; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.col; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore(); }
+    if (t < DUR) requestAnimationFrame(frame); else c.remove();
+  })(t0);
+}
+
+function homeNotices() {
+  const g = P.game, out = [];
+  for (const n of g.notices.splice(0)) { // shown once
+    if (n.type === "freezeUsed") out.push(h("div", { class: "card notice freeze" }, h("b", {}, `❄️ Streak freeze used`), h("div", { class: "small" }, `You missed ${n.days.length === 1 ? "a day" : `${n.days.length} days`} (${n.days.join(", ")}), so a freeze kept your ${n.streak}-day streak alive. ${n.left} left.`)));
+    if (n.type === "reset") out.push(h("div", { class: "card notice reset" }, h("b", {}, "Streak reset"), h("div", { class: "small" }, `Your ${n.was}-day streak ended. Your best is still saved. One lesson or today's review starts a new one.`)));
+  }
+  if (out.length) save();
+  const risk = S.atRisk(g, todayStr(), new Date().getHours());
+  if (risk) out.unshift(h("div", { class: "card notice risk" }, h("b", {}, `⚠️ Your ${risk.streak}-day streak is at risk`),
+    h("div", { class: "small" }, `Finish a lesson or today's review before midnight.${risk.freezes ? ` (If you miss today, 1 of your ${risk.freezes} freeze${risk.freezes > 1 ? "s" : ""} will cover it.)` : ""}`),
+    h("div", { class: "row mt8" }, linkBtn(`#/l/${todayLesson().id}`, "Today's lesson", "btn primary"), linkBtn("#/review", "Review"))));
+  return out;
+}
+
+function heatmap(g, today, weeks = 20) {
+  const start = S.addDays(today, -S.weekday(today) - 7 * (weeks - 1));
+  const grid = h("div", { class: "hm-grid", role: "img", "aria-label": `Activity over the last ${weeks} weeks` });
+  const months = h("div", { class: "hm-months" }); let lastM = null;
+  const lvl = (d) => { const x = g.xpByDay[d] || 0; if (!g.active[d]) return x ? 1 : 0; return x >= 300 ? 4 : x >= 150 ? 3 : x >= 60 ? 2 : 1; };
+  for (let w = 0; w < weeks; w++) {
+    const monday = S.addDays(start, 7 * w); const m = +monday.slice(5, 7);
+    months.append(h("span", {}, m !== lastM ? ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1] : "")); lastM = m;
+    for (let dI = 0; dI < 7; dI++) {
+      const d = S.addDays(monday, dI);
+      if (d > today) { grid.append(h("i", { class: "hm future" })); continue; }
+      const cls = g.frozen[d] ? "frozen" : g.active[d] ? `l${lvl(d)}` : "l0";
+      grid.append(h("i", { class: `hm ${cls}${d === today ? " today" : ""}`, title: `${d}${g.active[d] ? ` · active · ${g.xpByDay[d] || 0} XP` : g.frozen[d] ? " · freeze used" : ""}` }));
+    }
+  }
+  const nActive = Object.keys(g.active).length;
+  return h("div", { class: "heatmap" }, months, grid,
+    h("div", { class: "hm-legend small muted" }, h("span", {}, `${nActive} active day${nActive === 1 ? "" : "s"}`), h("span", { class: "hm-key" }, "Less ", ...[0, 1, 2, 3, 4].map(i => h("i", { class: `hm l${i}` })), " More ", h("i", { class: "hm frozen" }), " freeze")));
+}
+
+function streakCard() {
+  const g = P.game, t = todayStr(), s = S.streakInfo(g, t), lv = S.levelFor(g.xp);
+  const defs = S.badgeDefs(badgeCtx()); const earned = defs.filter(d => g.badges[d.id]).length;
+  const nextMs = S.MILESTONES.find(m => m > s.current);
+  return h("section", { class: `card streakcard${s.todayDone ? " done" : ""}${s.current ? " lit" : ""}` },
+    h("div", { class: "sc-top" },
+      h("div", { class: "flame", "aria-hidden": "true" }, "🔥"),
+      h("div", { class: "sc-num" }, h("b", {}, s.current), h("span", {}, `day streak${nextMs ? ` · next badge at ${nextMs}` : ""}`)),
+      h("div", { class: "sc-side" }, h("div", {}, h("span", { class: "muted" }, "Best "), h("b", {}, s.best)), h("div", { title: "Streak freezes: earn 1 per 7-day streak (max 2). Each covers one missed day automatically." }, "❄️ ", h("b", {}, g.freezes), h("span", { class: "muted" }, `/${S.FREEZE_CAP}`)))),
+    h("div", { class: `goal${s.todayDone ? " ok" : ""}` }, s.todayDone ? "✓ Today's goal done. See you tomorrow!" : "○ Today's goal: finish 1 lesson or today's Review"),
+    h("div", { class: "level" },
+      h("div", { class: "row between small" }, h("b", {}, `💼 ${lv.title}`), h("span", { class: "muted" }, lv.next ? `${g.xp.toLocaleString()} / ${lv.next.toLocaleString()} XP → ${lv.nextTitle}` : `${g.xp.toLocaleString()} XP · top of the desk`)),
+      h("div", { class: "bar xp" }, h("i", { style: `width:${(lv.pct * 100).toFixed(1)}%` }))),
+    heatmap(g, t),
+    linkBtn("#/badges", `🏅 Badges ${earned}/${defs.length} →`, "btn block mt8"));
+}
+
+function viewBadges() {
+  const g = P.game, lv = S.levelFor(g.xp), s = S.streakInfo(g, todayStr());
+  const defs = S.badgeDefs(badgeCtx()); const earned = defs.filter(d => g.badges[d.id]).length;
+  const tile = (d) => { const [have, need] = d.progress(g); const got = g.badges[d.id];
+    return h("div", { class: `badge-tile${got ? " earned" : " locked"}` },
+      h("div", { class: "bi", "aria-hidden": "true" }, got ? d.icon : "🔒"), h("div", { class: "bt" }, d.title), h("div", { class: "bd small muted" }, d.desc),
+      got ? h("div", { class: "small ok" }, `Earned ${got}`) : h("div", { class: "bp" }, h("div", { class: "bar" }, h("i", { style: `width:${(100 * have / need).toFixed(0)}%` })), h("span", { class: "small muted" }, `${have}/${need}`))); };
+  const groups = [...new Set(defs.map(d => d.group))];
+  app.replaceChildren(
+    h("nav", { class: "crumbs small muted" }, h("a", { href: "#/" }, "← Home")),
+    h("h1", {}, "🏅 Badges & levels"),
+    h("div", { class: "card levelcard" },
+      h("div", { class: "row between" }, h("b", {}, `💼 ${lv.title}`), h("span", { class: "small muted" }, `${g.xp.toLocaleString()} XP`)),
+      h("div", { class: "bar xp big" }, h("i", { style: `width:${(lv.pct * 100).toFixed(1)}%` })),
+      h("div", { class: "small muted mt8" }, lv.next ? `${(lv.next - g.xp).toLocaleString()} XP to ${lv.nextTitle}` : "You've reached the top of the desk."),
+      h("ol", { class: "ladder small" }, S.LEVELS.map(([x, t], i) => h("li", { class: i < lv.index ? "past" : i === lv.index ? "now" : "" }, h("span", {}, t), h("span", { class: "muted" }, `${x.toLocaleString()} XP`)))),
+      h("details", { class: "small muted" }, h("summary", {}, "How XP works"),
+        h("p", {}, `Lesson ${S.XP.lesson} · checkpoint ${S.XP.checkpoint} · final ${S.XP.final} · exercise ${S.XP.exPerStar} per ★ (+${S.XP.noPeek} if you didn't view the solution) · review exercise ${S.XP.reviewEx} · review question ${S.XP.reviewQuiz} · full review set +${S.XP.reviewSet}.`))),
+    h("div", { class: "card row between small" }, h("span", {}, `🔥 ${s.current}-day streak · best ${s.best}`), h("span", {}, `❄️ ${g.freezes}/${S.FREEZE_CAP} freezes`), h("b", {}, `${earned}/${defs.length} earned`)),
+    ...groups.flatMap(gr => [h("div", { class: "sec-title" }, gr), h("div", { class: "badge-grid" }, defs.filter(d => d.group === gr).map(tile))]),
+  );
 }
 
 // ---------- views ----------
@@ -286,6 +415,7 @@ function viewHome() {
   const totalEx = LESSONS.reduce((a, l) => a + l.exercises.length, 0);
   const rc = reviewCounts(); const left = rc.total - rc.done;
   app.replaceChildren(
+    ...homeNotices(),
     h("section", { class: "card hero" },
       h("div", { class: "kicker" }, doneToday ? "Today's lesson is done 🎉 Keep going?" : "Today's lesson"),
       h("h1", {}, `${t.num}. ${t.title}`),
@@ -298,11 +428,8 @@ function viewHome() {
       h("div", { class: "rv-l" }, h("b", {}, "🔁 Daily review"),
         h("span", { class: "small muted" }, rc.total ? (left ? `${left} to do today: missed exercises + spaced repeats` : "All done for today ✓ Tap for extra practice") : "Exercises come back 1, 3, 7, 14 and 30 days after you pass them")),
       h("span", { class: "pill" }, left ? String(left) : "✓")),
-    h("section", { class: "stats" },
-      h("div", { class: "stat" }, h("b", {}, `🔥 ${streak()}`), h("span", {}, "day streak")),
-      h("div", { class: "stat" }, h("b", {}, P.days.length), h("span", {}, "days studied")),
-      h("div", { class: "stat" }, h("b", {}, `${nEx}/${totalEx}`), h("span", {}, `exercises · ${nDone}/${LESSONS.length} lessons`))),
-    h("div", { class: "sec-title" }, "Curriculum"),
+    streakCard(),
+    h("div", { class: "sec-title" }, "Curriculum ", h("span", { class: "legend" }, `${nDone}/${LESSONS.length} lessons · ${nEx}/${totalEx} exercises · ${P.days.length} days studied`)),
     ...DATA.units.map((u, i) => {
       const done = u.lessons.filter(l => P.completed[l.id]).length;
       const open = u.lessons.includes(t);
@@ -335,7 +462,8 @@ function viewLesson(id) {
         h("div", {}, h("b", {}, `${qs}/${l.quiz.length}`), h("span", {}, "questions right"))),
       passed === l.exercises.length ? h("div", { class: "small ok" }, l.kind === "final" ? "Passed. Congratulations, you've completed the course! 🎉" : "Checkpoint passed ✓") : h("div", { class: "small muted" }, "Pass every exercise to clear this. Misses go into your daily Review.")));
   };
-  const complete = (auto) => { if (!P.completed[id]) { P.completed[id] = todayStr(); touchDay(); updComplete(); toast(auto ? "🎉 All exercises passed: lesson complete!" : "Lesson complete ✓"); } };
+  const complete = (auto) => { if (!P.completed[id]) { P.completed[id] = todayStr(); touchDay(); updComplete(); queueToast(auto ? "🎉 All exercises passed: lesson complete!" : "Lesson complete ✓");
+    award(`lesson:${id}`, l.kind === "final" ? S.XP.final : l.kind === "checkpoint" ? S.XP.checkpoint : S.XP.lesson); activity("lesson"); } };
   completeBtn.onclick = () => { if (P.completed[id]) { if (confirm("Mark as not complete?")) { delete P.completed[id]; save(); updComplete(); } } else complete(false); };
   updComplete(); updScore();
   const onPass = () => { updScore(); if (l.exercises.every((_, i) => P.ex[exKey(l, i)] && P.ex[exKey(l, i)].passed)) complete(true); };
@@ -368,7 +496,7 @@ function viewReview() {
   const c = reviewCounts();
   const prog = h("div", { class: "bar big" }, h("i", { style: `width:${c.total ? (100 * c.done / c.total).toFixed(1) : 0}%` }));
   const counter = h("span", { class: "small muted" }, `${c.done}/${c.total} done today`);
-  const refresh = () => { const cc = reviewCounts(); prog.firstChild.style.width = `${cc.total ? (100 * cc.done / cc.total).toFixed(1) : 0}%`; counter.textContent = `${cc.done}/${cc.total} done today`; if (cc.total && cc.done === cc.total) doneBox.hidden = false; };
+  const refresh = () => { const cc = reviewCounts(); prog.firstChild.style.width = `${cc.total ? (100 * cc.done / cc.total).toFixed(1) : 0}%`; counter.textContent = `${cc.done}/${cc.total} done today`; if (cc.total && cc.done === cc.total) { doneBox.hidden = false; award(`rvset:${todayStr()}`, S.XP.reviewSet); activity("review"); } };
   const passedAny = Object.values(P.ex).some(s => s && s.passed);
   const extraBtn = () => h("button", { class: "btn", type: "button", onclick: () => { const n = addExtraPractice(5); if (!n) toast("Pass some exercises first, then they'll show up here."); viewReview(); } }, "➕ 5 more for extra practice");
   const doneBox = h("div", { class: "card banner-card", hidden: !(c.total && c.done === c.total) }, h("b", {}, "🎉 Review complete for today."), h("p", { class: "small muted" }, "Spaced repetition works best a little every day. Come back tomorrow for the next set."), passedAny ? extraBtn() : null);
@@ -385,7 +513,7 @@ function viewReview() {
     if (r.done["q:" + k] || !quizActive(r, k)) continue;
     const x = quizOf(k); if (!x) continue;
     items.push(h("div", { class: "rv-item" }, h("div", { class: "ctx small muted" }, h("span", { class: "tag missed" }, "? question"), " from ", h("a", { href: `#/l/${x.l.id}` }, `${x.l.num}. ${x.l.title}`)),
-      quizBlock(x.q, k, { fresh: true, onAnswer: (ok) => { if (ok) { r.done["q:" + k] = true; save(); refresh(); } } })));
+      quizBlock(x.q, k, { fresh: true, onAnswer: (ok) => { if (ok) { r.done["q:" + k] = true; award(`rvq:${todayStr()}:${k}`, S.XP.reviewQuiz); save(); refresh(); } } })));
   }
   const doneList = [...r.keys.filter(k => r.done[k]).map(k => exOf(k)).filter(Boolean).map(x => h("li", {}, "✓ ", x.e.title, h("span", { class: "muted" }, ` · ${x.l.title}`))),
     ...r.quiz.filter(k => r.done["q:" + k]).map(k => quizOf(k)).filter(Boolean).map(x => h("li", {}, "✓ Question · ", h("span", { class: "muted" }, x.l.title)))];
@@ -418,19 +546,19 @@ function viewSettings() {
   app.replaceChildren(h("nav", { class: "crumbs small" }, h("a", { href: "#/" }, "← Home")), h("h1", {}, "Progress & settings"),
     h("div", { class: "card" }, h("h3", {}, "Theme"), seg),
     h("div", { class: "card" }, h("h3", {}, "Memory strength"), h("p", { class: "small muted" }, `Missed: ${missed} · learning (≤3 days): ${boxes[0] + boxes[1] + boxes[2]} · solid (7–14 days): ${boxes[3] + boxes[4]} · mastered (30+ days): ${boxes[5] + boxes[6]}`)),
-    h("div", { class: "card" }, h("h3", {}, "Export progress"), h("p", { class: "small muted" }, "Progress lives on this device only (localStorage). Export it to back up or move devices."),
+    h("div", { class: "card" }, h("h3", {}, "Export progress"), h("p", { class: "small muted" }, "Progress lives on this device only (localStorage). The export includes lessons, exercises, review schedule, streak, XP and badges."),
       h("div", { class: "row" },
         h("button", { class: "btn", type: "button", onclick: () => { const blob = new Blob([JSON.stringify(P, null, 1)], { type: "application/json" }); const a = h("a", { href: URL.createObjectURL(blob), download: `pyrisk-progress-${todayStr()}.json` }); document.body.append(a); a.click(); a.remove(); } }, "⬇ Download JSON"),
         h("button", { class: "btn", type: "button", onclick: async () => { try { await navigator.clipboard.writeText(JSON.stringify(P)); toast("Copied progress JSON"); } catch { ta.value = JSON.stringify(P); toast("Copy it from the box below"); } } }, "📋 Copy"))),
     h("div", { class: "card" }, h("h3", {}, "Import progress"), ta,
       h("div", { class: "row mt8" },
         h("label", { class: "btn", style: "text-align:center" }, "📁 Choose file", h("input", { type: "file", accept: "application/json,.json", hidden: true, onchange: async (e) => { try { ta.value = await e.target.files[0].text(); } catch { toast("Couldn't read that file"); } } })),
-        h("button", { class: "btn primary", type: "button", onclick: () => { try { const d = JSON.parse(ta.value); if (!d || typeof d.completed !== "object" || typeof d.ex !== "object") throw 0; P = Object.assign(blank(), d, { review: null }); save(); toast("Progress imported ✓"); location.hash = "#/"; } catch { toast("That doesn't look like a progress export"); } } }, "Import"))),
+        h("button", { class: "btn primary", type: "button", onclick: () => { try { const d = JSON.parse(ta.value); if (!d || typeof d.completed !== "object" || typeof d.ex !== "object") throw 0; P = Object.assign(blank(), d, { review: null }); ensureGame(true); save(); toast("Progress imported ✓"); location.hash = "#/"; } catch { toast("That doesn't look like a progress export"); } } }, "Import"))),
     h("div", { class: "card" }, h("h3", {}, "Offline & updates"), h("p", { class: "small muted" }, `After one online load, everything (Python ${PRECACHE.pyodideVersion}, numpy, pandas, all ${LESSONS.length} lessons) is stored on this device, about ${Math.round(PRECACHE.bytes / 1e6)} MB. On iPhone, add it to the Home Screen (Share → Add to Home Screen). iOS can still occasionally clear website data, so if the offline badge ever isn't green, open the app once online.`),
       h("div", { class: "row" },
         h("button", { class: "btn", type: "button", onclick: async () => { let r = false; try { r = navigator.storage && navigator.storage.persist ? await navigator.storage.persist() : false; } catch {} toast(r ? "Storage marked persistent ✓" : "Persistent storage not granted (normal in a Safari tab; install to the Home Screen)", 4000); } }, "Request persistent storage"),
         h("button", { class: "btn", type: "button", onclick: async () => { if (!swReg) return toast("Service worker not active"); try { await swReg.update(); toast(swReg.waiting || swReg.installing ? "Downloading update…" : "You're on the latest version"); } catch { toast("Couldn't check (offline?)"); } } }, "Check for updates"))),
-    h("div", { class: "card" }, h("h3", {}, "Reset"), h("button", { class: "btn danger", type: "button", onclick: () => { if (confirm("Erase all progress on this device?")) { P = blank(); save(); toast("Progress reset"); location.hash = "#/"; } } }, "Reset all progress")),
+    h("div", { class: "card" }, h("h3", {}, "Reset"), h("button", { class: "btn danger", type: "button", onclick: () => { if (confirm("Erase all progress on this device?")) { P = blank(); ensureGame(true); save(); toast("Progress reset"); location.hash = "#/"; } } }, "Reset all progress")),
     h("p", { class: "small muted" }, `Build ${PRECACHE.version}. Synthetic data only: for learning, not production risk.`));
 }
 
@@ -438,7 +566,7 @@ function route() {
   $("#kbdbar").hidden = true; activeView = null; pyListeners.clear();
   const hash = location.hash || "#/"; const m = hash.match(/^#\/l\/(\w+)/);
   try {
-    if (m) viewLesson(m[1]); else if (hash.startsWith("#/review")) viewReview(); else if (hash.startsWith("#/projects")) viewProjects(); else if (hash.startsWith("#/settings")) viewSettings(); else viewHome();
+    if (m) viewLesson(m[1]); else if (hash.startsWith("#/review")) viewReview(); else if (hash.startsWith("#/badges")) viewBadges(); else if (hash.startsWith("#/projects")) viewProjects(); else if (hash.startsWith("#/settings")) viewSettings(); else viewHome();
   } catch (e) { console.error(e); app.replaceChildren(h("div", { class: "card" }, h("b", {}, "Something went wrong rendering this page."), h("pre", { class: "out err" }, String(e && e.stack || e)), linkBtn("#/", "← Home"))); }
   window.scrollTo(0, 0);
 }
@@ -477,7 +605,11 @@ async function setupSW() {
   buildBar();
   startWorker();
   try { await loadData(); } catch (e) { app.replaceChildren(h("div", { class: "card" }, h("b", {}, "Couldn't load lessons."), h("p", { class: "small muted" }, "Connect once to download the course, then it works offline."), h("button", { class: "btn primary", type: "button", onclick: () => location.reload() }, "Retry"))); setupSW(); return; }
+  ensureGame(true); save();
   window.addEventListener("hashchange", route);
   route();
   setupSW();
+  // Local-midnight rollover: re-run the day check while the app stays open, and when it returns to the foreground.
+  setInterval(checkDayRollover, 30000);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkDayRollover(); });
 })();
