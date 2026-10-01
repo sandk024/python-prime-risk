@@ -16,7 +16,7 @@ def code_in(pg, card, text):
 def full_shot(pg, path):
     h = pg.evaluate("document.documentElement.scrollHeight")
     for y in range(0, h, 500): pg.evaluate(f"scrollTo(0,{y})"); pg.wait_for_timeout(60)
-    pg.evaluate("scrollTo(0,0)"); pg.wait_for_timeout(300); pg.screenshot(path=path, full_page=True)
+    pg.evaluate("scrollTo(0,0); const t = document.querySelector('#toast'); if (t) t.hidden = true; document.querySelectorAll('canvas.confetti').forEach(c => c.remove())"); pg.wait_for_timeout(300); pg.screenshot(path=path, full_page=True)
 with sync_playwright() as p:
     dev = dict(p.devices["iPhone 14"]); dev.pop("default_browser_type", None)
     b = p.chromium.launch(executable_path="/usr/bin/google-chrome"); ctx = b.new_context(**dev, color_scheme="dark"); pg = ctx.new_page()
