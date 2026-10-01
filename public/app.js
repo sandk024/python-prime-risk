@@ -267,7 +267,7 @@ function exerciseBlock(l, e, i, onPass, { review = false, onReview } = {}) {
         onReview && onReview();
       } else if (!ok) failedNow = true;
     } else if (ok && !s.passed) { s.passed = true; s.passedOn = todayStr(); schedulePass(s, s.attempts === 1 && !s.sawSol); gained = award(`ex:${key}`, S.exerciseXP(e.difficulty, s.sawSol)); }
-    banner.replaceChildren(h("div", { class: `banner ${ok ? "ok" : "bad"}` }, ok ? `✅ All ${r.results.length} checks passed!${review ? (failedNow || sawNow ? " It'll come back tomorrow." : ` Next review in ${INTERVALS[s.box]} days.`) : ""}${gained ? `  +${gained} XP` : ""}` : `${r.results.filter(t => t.ok).length}/${r.results.length} checks passed. Read the ❌ feedback, fix, and check again.`));
+    banner.replaceChildren(h("div", { class: `banner ${ok ? "ok" : "bad"}` }, ok ? `✅ ${r.results.length === 1 ? "Check passed!" : `All ${r.results.length} checks passed!`}${review ? (failedNow || sawNow ? " It'll come back tomorrow." : ` Next review in ${INTERVALS[s.box]} days.`) : ""}${gained ? `  +${gained} XP` : ""}` : `${r.results.filter(t => t.ok).length}/${r.results.length} checks passed. Read the ❌ feedback, fix, and check again.`));
     save(); updSol(); if (ok && !review) onPass && onPass();
   } });
   card.append(...[title, h("div", { class: "prose", html: e.prompt_html }), cb.el, banner, hintsBox, h("div", { class: "row" }, hintBtn, solBtn), solBox]);
@@ -421,6 +421,12 @@ function homeNotices() {
     if (n.type === "freezeUsed") out.push(h("div", { class: "card notice freeze" }, h("b", {}, `❄️ Streak freeze used`), h("div", { class: "small" }, `You missed ${n.days.length === 1 ? "a day" : `${n.days.length} days`} (${n.days.join(", ")}), so a freeze kept your ${n.streak}-day streak alive. ${n.left} left.`)));
     if (n.type === "reset") out.push(h("div", { class: "card notice reset" }, h("b", {}, "Streak reset"), h("div", { class: "small" }, `Your ${n.was}-day streak ended. Your best is still saved. One lesson or today's review starts a new one.`)));
   }
+  // one-time intro for people who started before the beginner unit existed (their progress is untouched)
+  if (!P.introU0 && Object.keys(P.completed).some(k => BYID[k] && BYID[k].unit.id !== "u0")) {
+    P.introU0 = todayStr();
+    out.push(h("div", { class: "card notice intro" }, h("b", {}, "🆕 New first unit: Python from Zero"),
+      h("div", { class: "small" }, "15 short lessons that teach Python from scratch, one idea at a time. Today's lesson now starts there. Everything you've already done is kept, and the trading-desk lessons follow as Unit 2.")));
+  }
   if (out.length) save();
   const risk = S.atRisk(g, todayStr(), new Date().getHours());
   if (risk) out.unshift(h("div", { class: "card notice risk" }, h("b", {}, `⚠️ Your ${risk.streak}-day streak is at risk`),
@@ -496,7 +502,7 @@ function viewHome() {
       h("div", { class: "kicker" }, doneToday ? "Today's lesson is done 🎉 Keep going?" : "Today's lesson"),
       h("h1", {}, `${t.num}. ${t.title}`),
       h("p", { class: "muted small" }, `${t.unit.title} · ~${t.minutes} min · ${t.exercises.length} exercises`),
-      h("p", { class: "small use-line" }, "💼 ", t.use),
+      h("p", { class: "small use-line" }, t.learn ? "🎯 " : "💼 ", t.use),
       linkBtn(`#/l/${t.id}`, P.last === t.id ? "Continue →" : "Start →", "btn primary block"),
       last ? linkBtn(`#/l/${last.id}`, `Continue where you left off: ${last.num}. ${last.title}`, "btn block mt8") : null,
       h("div", { class: "overall" }, h("div", { class: "bar" }, h("i", { style: `width:${(100 * nDone / LESSONS.length).toFixed(1)}%` })), h("span", { class: "small muted" }, `Course ${Math.round(100 * nDone / LESSONS.length)}% · `, pyBadge()))),
@@ -552,17 +558,23 @@ function viewLesson(id) {
     l.kind === "checkpoint" ? h("div", { class: "card cpbanner" }, h("b", {}, "🏁 Unit checkpoint"), h("div", { class: "small" }, "Mixed questions and exercises covering this unit. Try without hints first.")) : null,
     l.kind === "final" ? h("div", { class: "card cpbanner final" }, h("b", {}, "🎓 Final assessment"), h("div", { class: "small" }, "Eight exercises across the whole course, 60 minutes. Start the timer below when you're ready.")) : null,
     scoreEl,
-    h("div", { class: "card use" }, h("b", {}, "💼 At work: "), l.use),
-    h("div", { class: "card prose", html: l.body_html }),
+    l.learn ? h("div", { class: "card use learn" }, h("b", {}, "🎯 What you'll learn: "), l.learn) : h("div", { class: "card use" }, h("b", {}, "💼 At work: "), l.use),
+    l.body_html ? h("div", { class: "card prose", html: l.body_html }) : null,
+    ...(l.chunks || []).map((c, i) => h("div", { class: `card chunk${c.error ? " broken" : ""}` },
+      h("div", { class: "chunk-no small muted" }, `Step ${i + 1} of ${l.chunks.length}`),
+      c.html ? h("div", { class: "prose", html: c.html }) : null,
+      c.code && c.error ? h("div", { class: "small muted chunk-hint" }, "⚠️ This example is broken on purpose. Tap ▶ Run and read the error.") : null,
+      c.code ? codeBlock(c.code).el : null)),
     l.talk_html ? h("div", { class: "card prose talk", html: "<b>🗣 Talk it through</b>" + l.talk_html }) : null,
     l.examples.length ? h("div", { class: "sec-title" }, "Worked examples: edit & run") : null,
     ...l.examples.map(e => { const c = typeof e === "string" ? { code: e } : e; return h("div", { class: "card" }, c.title ? h("h3", {}, c.title) : null, codeBlock(c.code).el); }),
-    l.quiz.length ? h("div", { class: "sec-title" }, l.kind ? "Questions" : "Quick check") : null,
+    l.quiz.length ? h("div", { class: "sec-title" }, l.kind ? "Questions" : l.learn ? "Predict the output" : "Quick check") : null,
     ...l.quiz.map((qz, i) => quizBlock(qz, `${l.id}:${i}`, { onAnswer: updScore })),
     h("div", { class: "sec-title" }, "Exercises: auto-checked ", h("span", { class: "legend" }, "★ warm-up · ★★ core · ★★★ stretch")),
     l.timed ? timerRow(l.timed, l.kind === "final" ? "Exam clock: 60 minutes for all eight exercises." : `Aim for ~${l.timed} min per problem. Say your plan out loud before typing.`) : null,
     ...l.exercises.map((e, i) => exerciseBlock(l, e, i, onPass)),
     l.work_html ? h("div", { class: "card prose work", html: l.work_html }) : null,
+    l.recap ? h("div", { class: "card recap" }, h("b", {}, "📌 Recap: "), l.recap) : null,
     completeBtn,
     h("div", { class: "navrow" }, prev ? linkBtn(`#/l/${prev.id}`, "← Prev") : null, next ? linkBtn(`#/l/${next.id}`, "Next →") : null),
   ].filter(Boolean));

@@ -2,7 +2,7 @@ import json, sys, importlib, hashlib, os, re
 sys.path.insert(0, "content")
 import markdown
 from dsl import UNITS
-MODS = ["u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9a", "u9b", "u9c", "u9d", "u9e", "cp1", "cp2", "cp3", "final"]
+MODS = ["u0", "u1", "u2", "u3", "u4", "u5", "u6", "u7", "u8", "u9a", "u9b", "u9c", "u9d", "u9e", "cp1", "cp2", "cp3", "final"]
 for m in MODS:
     if os.path.exists(f"content/{m}.py"):
         importlib.import_module(m)
@@ -26,6 +26,7 @@ for u in UNITS:
     for l in u["lessons"]:
         l = dict(l)
         l["body_html"] = md(l["body"]); del l["body"]
+        l["chunks"] = [dict(html=md(c["text"]), code=c["code"], error=c["error"]) for c in l.get("chunks") or []]
         l["work_html"] = md(l["work"])
         l["talk_html"] = md(l["talk"]); del l["talk"]
         l["exercises"] = [dict(e, prompt_html=md(e["prompt"])) for e in l["exercises"]]

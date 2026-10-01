@@ -240,4 +240,12 @@ main > * { animation: fadein .18s ease both; }
 @media (prefers-reduced-motion: reduce) { .rw-box { animation: none; } }
 .level-line { margin-top: 8px; align-items: center; }
 
+/* ---------- beginner lessons ---------- */
+.card.use.learn { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+.card.chunk .chunk-no { text-transform: uppercase; letter-spacing: .06em; font-weight: 700; font-size: 11px; margin-bottom: 4px; }
+.card.chunk .prose > :first-child { margin-top: 0; }
+.card.chunk .chunk-hint { margin: 10px 0 6px; }
+.card.chunk.broken { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+.card.recap { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 8%, var(--card)); }
+
 [hidden] { display: none !important; }

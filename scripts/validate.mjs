@@ -20,6 +20,14 @@ for (const u of data.units) for (const l of u.lessons) {
     const r = await R(code, null);
     if (r.error) { fails++; lines.push(`FAIL ${l.id} example ${i}: ${r.error}`); }
   }
+  for (const [i, c] of (l.chunks || []).entries()) {
+    if (!c.code) continue;
+    nexamples++;
+    const r = await R(c.code, null);
+    if (c.error && !r.error) { fails++; lines.push(`FAIL ${l.id} chunk ${i}: meant to show an error but ran cleanly`); }
+    if (!c.error && r.error) { fails++; lines.push(`FAIL ${l.id} chunk ${i}: ${r.error}`); }
+    if (!c.error && !r.stdout.trim()) { fails++; lines.push(`FAIL ${l.id} chunk ${i}: example prints nothing`); }
+  }
   for (const qz of l.quiz) if (!(qz.answer >= 0 && qz.answer < qz.options.length)) { fails++; lines.push(`FAIL ${l.id} quiz answer index`); }
   for (const [i, e] of l.exercises.entries()) {
     nex++;

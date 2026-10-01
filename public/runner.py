@@ -19,6 +19,36 @@ def _fmt_exc(e, src_name="<your code>"):
     t = tips.get(type(e).__name__)
     return msg + ("\n" + t if t else "")
 
+def _kind(v):
+    """Describe a value in beginner terms for feedback messages."""
+    if isinstance(v, bool): return f"{v} (a True/False value)"
+    if isinstance(v, str): return f'"{v}" (text)'
+    if isinstance(v, int): return f"{v} (a whole number)"
+    if isinstance(v, float): return f"{v} (a decimal number)"
+    if v is None: return "None (Python's 'nothing': a missing value or a missing return)"
+    return repr(v)
+
+def _rerun(code, setup="", **vals):
+    """Re-run the learner's code with the first `name = ...` line of each given variable replaced,
+    so a check can try other inputs. Returns the new namespace (with _stdout)."""
+    src = code
+    for k, v in vals.items():
+        src, n = re.subn(rf"^{k}\s*=.*$", f"{k} = {v!r}", src, count=1, flags=re.M)
+        if not n:
+            raise AssertionError(f"Keep the line that creates `{k}` (e.g. `{k} = ...`): the checker changes its value to try other cases.")
+    ns = {"__name__": "__main__"}
+    buf = io.StringIO(); old = sys.stdout, sys.stderr
+    sys.stdout = sys.stderr = buf
+    try:
+        if setup:
+            exec(compile(setup, "<setup>", "exec"), ns)
+        exec(compile(src, "<your code>", "exec"), ns)
+    finally:
+        sys.stdout, sys.stderr = old
+    ns["_stdout"] = buf.getvalue()
+    ns["_out"] = [ln.rstrip() for ln in ns["_stdout"].splitlines()]
+    return ns
+
 def run(code, tests_json="null", setup=""):
     tests = json.loads(tests_json) if tests_json else None
     ns = {"__name__": "__main__"}
@@ -50,9 +80,12 @@ def run(code, tests_json="null", setup=""):
         ns["_stdout"] = stdout
         ns["_source"] = code
         ns["_close"] = lambda a, b, tol=1e-6: abs(float(a) - float(b)) <= tol * max(1.0, abs(float(b)))
+        ns["_out"] = [ln.rstrip() for ln in stdout.splitlines()]
+        ns["_kind"] = _kind
+        ns["_rerun"] = lambda **vals: _rerun(code, setup, **vals)
         for t in tests:
             if error:
-                results.append({"name": t["name"], "ok": False, "msg": "Your code raised an error before tests could run."})
+                results.append({"name": t["name"], "ok": False, "msg": "Your code stopped with an error (the red message above), so it couldn't be checked yet. Fix that line first, then tap Check again."})
                 continue
             buf = io.StringIO()
             sys.stdout = sys.stderr = buf
@@ -64,7 +97,7 @@ def run(code, tests_json="null", setup=""):
             except NameError as e:
                 m = re.search(r"name '(\w+)'", str(e))
                 nm = m.group(1) if m else "?"
-                results.append({"name": t["name"], "ok": False, "msg": f"Couldn't find `{nm}` — did you define it with exactly that name?"})
+                results.append({"name": t["name"], "ok": False, "msg": f"I couldn't find `{nm}`. Create it with exactly that name (spelling and capital letters matter)."})
             except BaseException as e:
                 results.append({"name": t["name"], "ok": False, "msg": f"{type(e).__name__} while testing: {e}"})
             finally:

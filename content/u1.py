@@ -1,11 +1,17 @@
 from dsl import *
 
-unit("u1", "Python Foundations on a Trading Desk", "Variables, strings, lists, dicts, functions and comprehensions — using positions, notional and P&L.")
+unit("u1", "Python on a Trading Desk", "Use the basics from Python from Zero on real desk problems: notional and P&L, trade files, positions, margin rules. Each lesson adds a little new Python and explains it first.")
 
 lesson("u1l1", "Notional & P&L: variables and numbers",
 "Sanity-check a position's notional and a day's P&L before the morning risk call.",
 r'''
-A **variable** is a name pointing at a value. Python has `int` (whole numbers) and `float` (decimals).
+> **New in this lesson** (everything else you met in Python from Zero)
+>
+> - **Desk words:** a **futures contract** is an agreement to buy or sell something (oil, a stock index) later at a price fixed today. The **multiplier** turns a price into dollars (1 ES contract = $50 per index point). **Notional** = price × multiplier × contracts: the total value controlled. **P&L** = profit and loss. **Long** = you bought; **short** = you sold, and you gain when the price falls.
+> - **Two variables in one line:** `entry, exit_px = 71.40, 70.90` puts 71.40 in `entry` and 70.90 in `exit_px`.
+> - **Format codes:** `{x:,.2f}` = thousands commas + 2 decimals (`5,850,250.00`).
+
+You already know variables, `int`/`float` and arithmetic. Here's the desk version:
 
 ```python
 price = 5850.25      # ES settlement
@@ -14,14 +20,13 @@ contracts = 20
 notional = price * multiplier * contracts
 ```
 
-Operators: `+ - * /`, `//` (floor division), `%` (remainder), `**` (power).
-`round(x, 2)` rounds; an **f-string** formats: `f"{notional:,.2f}"` → `5,850,250.00`.
+Reminder: `round(x, 2)` rounds; an f-string with a format code makes it readable: `f"{notional:,.2f}"` → `5,850,250.00`.
 
 **Futures P&L** = (exit − entry) × contracts × multiplier. Short positions use a negative quantity, so the same formula works for both sides.
 
-Tick math: ES tick = 0.25 points = **$12.50** (0.25 × $50).
+A **tick** is the smallest price step a contract can move. ES tick = 0.25 points = **$12.50** (0.25 × $50).
 
-> Floats are binary approximations: `0.1 + 0.2` is `0.30000000000000004`. For money reporting round at the end; for exact ledgers use `decimal.Decimal`.
+Heads-up: decimal numbers (floats) are stored approximately, so `0.1 + 0.2` shows `0.30000000000000004`. For money, round at the end when you report.
 ''',
 examples=[("Notional of an ES position", r'''
 price = 5850.25
@@ -99,7 +104,14 @@ pnl_usd = ticks * 12.5 * 8
 lesson("u1l2", "Strings: decode symbols, format a confirm",
 "Decode futures symbols like ESZ6 from an exchange file and print a clean trade confirm.",
 r'''
-Strings are text in quotes. They're **indexed** from 0, and negative indexes count from the end.
+> **New in this lesson** (everything else you met in Python from Zero)
+>
+> - **Desk words:** a futures **symbol** like `ESZ6` packs three things: the root (`ES` = S&P 500 futures), a **month code** letter (`Z` = December) and the year digit (`6` = 2026).
+> - **String indexing:** strings use positions like lists: `sym[0]` is the first character, `sym[-1]` the last.
+> - **Slicing:** `sym[start:stop]` takes a piece, from `start` up to but not including `stop`. Leave one out to go to the edge: `sym[:-2]` = everything except the last 2 characters. Works on lists too: `lines[1:]` = all but the first.
+> - **`.index(x)`:** the position where `x` first appears. **`.split(",")`:** cuts text at each comma and gives a list of pieces. Also **`.replace(a, b)`** and **`.startswith(x)`**.
+
+Like lists, strings are **indexed** from 0, and negative indexes count from the end.
 
 ```python
 sym = "ESZ6"
@@ -111,10 +123,9 @@ sym[:-2]   # 'ES' (root) — slicing [start:stop]
 
 Futures **month codes**: F G H J K M N Q U V X Z = Jan…Dec. So `"FGHJKMNQUVXZ".index("Z") + 1` → 12.
 
-Useful methods: `.upper()`, `.strip()` (remove spaces), `.split(",")` (→ list), `.replace(a, b)`, `.startswith()`.
-Convert types with `int("25")`, `float("5850.25")`, `str(25)`.
+Plus the ones you know: `.upper()`, `.strip()`, and `int("25")`, `float("5850.25")`, `str(25)`: text from a file always needs converting before math.
 
-f-string format specs: `{x:.2f}` two decimals, `{x:,}` thousands separators, `{s:>8}` right-align in 8 chars.
+Format codes: `{x:.2f}` two decimals, `{x:,}` thousands commas, `{s:>8}` right-align in 8 characters (handy for tidy columns).
 ''',
 examples=[("Decode a symbol", r'''
 sym = "ZCH7"
@@ -123,7 +134,9 @@ month_num = "FGHJKMNQUVXZ".index(month) + 1
 print(root, month_num, "202" + year)
 '''), ("Split a CSV line", r'''
 line = "SELL, NQZ6 ,5,20410.50,ACCT-0107"
-parts = [p.strip() for p in line.split(",")]
+parts = []
+for p in line.split(","):
+    parts.append(p.strip())   # remove stray spaces around each piece
 print(parts)
 qty = int(parts[2])
 print(qty * 2)
@@ -198,9 +211,14 @@ confirm = f"{side} {qty} {symbol} ({month_name}) @ {price} for {account}"
 lesson("u1l3", "Lists & loops: a week of desk P&L",
 "Summarize a desk's daily P&L series: total, worst day, loss days, and max drawdown.",
 r'''
-A **list** holds items in order: `pnl = [12500, -8300, 4100]`. Index like strings; `len(pnl)`, `sum(pnl)`, `min`, `max`; `.append(x)` adds to the end.
+> **New in this lesson** (everything else you met in Python from Zero)
+>
+> - **`enumerate(items, start=1)`:** loop and get a counter too: `for day, p in enumerate(daily_pnl, start=1):` gives `day` = 1, 2, 3… alongside each value `p`.
+> - **Desk word:** **drawdown** = how far cumulative P&L has fallen from its best point so far (explained below).
 
-A **for loop** runs a block for each item. The block is **indented 4 spaces**:
+Recap: a **list** holds items in order: `pnl = [12500, -8300, 4100]`; `len`, `sum`, `min`, `max`, `.append(x)`.
+
+A **for loop** runs its indented block once per item:
 
 ```python
 total = 0
@@ -208,7 +226,7 @@ for p in pnl:
     total = total + p   # or: total += p
 ```
 
-`enumerate(pnl)` gives `(index, value)` pairs; `range(5)` gives 0..4.
+`enumerate(pnl, start=1)` gives a counter with each value; `range(5)` gives 0..4.
 
 **Max drawdown** = the largest drop from a running peak of cumulative P&L — a core risk stat for any strategy or client:
 
@@ -305,7 +323,14 @@ max_dd = -min(daily_pnl)
 lesson("u1l4", "Dicts: contract specs & net positions",
 "Look up contract multipliers and net fills into positions — the core of every position file.",
 r'''
-A **dict** maps keys to values — perfect for lookups:
+> **New in this lesson** (everything else you met in Python from Zero)
+>
+> - **Tuple:** a fixed group of values in round brackets, `("ES", 25)`. Like a list, but it can't be changed after it's made.
+> - **Unpacking in a loop:** `for sym, qty in fills:` takes each tuple and splits it into two variables.
+> - **`abs(x)`:** the size of a number without its sign (`abs(-5)` is 5). **`d.values()`:** just the values of a dict, e.g. `sum(d.values())`.
+> - **`del d[key]`** removes a pair.
+
+Recap: a **dict** maps keys to values, perfect for lookups:
 
 ```python
 multiplier = {"ES": 50, "NQ": 20, "CL": 1000, "ZN": 1000, "ZC": 50}
@@ -354,13 +379,18 @@ fills = [("ES", 10), ("NQ", -5), ("ES", -4), ("CL", 3), ("ES", 2), ("CL", -3), (
 net = {}
 for sym, qty in fills:
     net[sym] = net.get(sym, 0) + qty
-net = {s: q for s, q in net.items() if q != 0}
+flat = []
+for sym, qty in net.items():
+    if qty == 0:
+        flat.append(sym)       # remember which ones are flat
+for sym in flat:
+    del net[sym]               # then remove them
 print(net)
 ''', [("values", r'''
 assert net.get("ES") == 8 and net.get("NQ") == -5 and net.get("ZN") == -20, f"net = {net}"
 '''), ("flat removed", r'''
 assert "CL" not in net, "CL nets to 0 (bought 3, sold 3) — remove it."
-''')], hints=["net[sym] = net.get(sym, 0) + qty", "Build a new dict keeping only non-zero values, or loop over list(net) and `del net[s]`."],
+''')], hints=["net[sym] = net.get(sym, 0) + qty", "Collect the flat symbols in a list, then `del net[sym]` each one (don't delete while looping over the same dict)."],
 wrong=r'''
 fills = [("ES", 10), ("NQ", -5), ("ES", -4), ("CL", 3), ("ES", 2), ("CL", -3), ("ZN", -20)]
 net = {}
@@ -403,9 +433,18 @@ gross_total = sum(notional.values())
 lesson("u1l5", "Conditionals & functions: the margin-call rule",
 "Encode the desk's margin-call rule once, so it's applied identically every day.",
 r'''
-`if / elif / else` choose a branch. Comparisons: `== != < <= > >=`; combine with `and`, `or`, `not`.
+> **New in this lesson** (everything else you met in Python from Zero)
+>
+> - **Desk words:** **equity** = what an account is worth today; the **margin requirement** = the minimum the clearing broker needs it to hold. Below that, the client gets a **margin call** (a demand for more cash).
+> - **Default values:** `def call_amount(equity, req, mta=10_000):` means `mta` is optional; if the caller leaves it out it's 10,000. (`10_000` is just 10000; underscores make big numbers readable.)
+> - **`import math`** loads Python's math toolbox (a **module**); then `math.ceil(x)` rounds **up** to a whole number (`math.ceil(12.1)` is 13).
+> - **One-line if/else:** `status = "OK" if u < 0.8 else "WARN"` is a compact `if/else` that produces a value.
+> - **Docstring:** a `"""text"""` string on the first line of a function that explains what it does.
+> - **Percent format:** `{u:.0%}` shows 0.85 as `85%`.
 
-A **function** packages logic with inputs (parameters) and an output (`return`):
+Recap: `if / elif / else` choose a branch; combine conditions with `and`, `or`, `not`.
+
+Recap: a **function** packages logic with inputs (parameters) and an output (`return`):
 
 ```python
 def notional(price, qty, multiplier):
@@ -431,7 +470,12 @@ def utilization(used, limit):
 
 for used in [40, 85, 120]:
     u = utilization(used, 100)
-    status = "BREACH" if u > 1 else ("WARN" if u >= 0.8 else "OK")
+    if u > 1:
+        status = "BREACH"
+    elif u >= 0.8:
+        status = "WARN"
+    else:
+        status = "OK"
     print(used, f"{u:.0%}", status)
 ''')],
 quiz=[q("A function ends with `print(x)` but no `return`. What does `y = f()` store in y?", ["x", "None", "An error", "The printed text"], 1, "Without `return`, a function returns `None`. Printing ≠ returning.")],
@@ -507,6 +551,14 @@ def call_amount(equity, requirement, mta=10_000):
 lesson("u1l6", "Comprehensions, sorting & zip",
 "Filter a fill blotter and build lookup tables in one readable line each.",
 r'''
+> **New in this lesson** (everything else you met in Python from Zero)
+>
+> - **Comprehensions:** a one-line way to build a list, set or dict from a loop (explained right below).
+> - **Set:** curly braces with single values, `{"A", "B"}`: an unordered collection with no duplicates.
+> - **`lambda`:** a tiny unnamed function written inline: `lambda f: f["qty"]` does the same as `def get_qty(f): return f["qty"]`.
+> - **`sorted(items, key=..., reverse=True)` / `max(items, key=...)`:** sort, or pick the biggest, by whatever `key` returns for each item.
+> - **`zip(a, b)`:** walks two lists side by side; `dict(zip(keys, values))` pairs them into a dict.
+
 A **list comprehension** builds a list from a loop in one line:
 
 ```python
@@ -626,7 +678,15 @@ moves = {s: settle[s] - prev_d[s] for s in symbols if settle[s] / prev_d[s] - 1 
 lesson("u1l7", "Take it to work: parse the daily trades file",
 "Every morning, turn the overnight trade file into net positions per account and symbol, and flag bad rows.",
 r'''
-Real files are text: a header row, then comma-separated rows — sometimes with blank lines or junk. The pattern:
+> **New in this lesson** (everything else you met in Python from Zero)
+>
+> - **Triple quotes** `"""..."""` make a string that spans several lines (like a small file pasted into the code).
+> - **`text.splitlines()`:** cuts text into a list of lines.
+> - **`continue`:** inside a loop, skip the rest of this round and go to the next item.
+> - **Empty text counts as False:** `if not line.strip():` is True for a blank line.
+> - **Tuple keys:** a dict key can be a tuple like `("HF-ALPHA", "ES")`, which lets you group by two things at once.
+
+Real files are text: a header row, then comma-separated rows, sometimes with blank lines or junk. The pattern:
 
 1. `text.strip().splitlines()` → list of lines
 2. skip the header, skip blanks
@@ -757,10 +817,13 @@ def parse_trades(text):
 def positions(trades):
     pos = {}
     for t in trades:
-        signed = t["qty"] if t["side"] == "BUY" else -t["qty"]
+        if t["side"] == "BUY":
+            signed = t["qty"]          # buying adds
+        else:
+            signed = -t["qty"]         # selling subtracts
         key = (t["account"], t["symbol"])
         pos[key] = pos.get(key, 0) + signed
-    return {k: v for k, v in pos.items() if v != 0}
+    return {k: v for k, v in pos.items() if v != 0}   # keep only non-zero positions
 
 print(positions(parse_trades(TRADES)))
 ''', [("netting", r'''
@@ -773,7 +836,7 @@ assert ("HF-BETA", "CL") not in p, "HF-BETA sold 15 and bought 15 CL → flat, d
 '''), ("keys are tuples", r'''
 p = positions([{"account": "Z", "side": "SELL", "symbol": "NQ", "qty": 2, "price": 1.0}])
 assert p == {("Z", "NQ"): -2}, f"got {p}"
-''')], hints=["signed = qty if side == 'BUY' else -qty", "key = (t['account'], t['symbol'])"],
+''')], hints=["if t['side'] == 'BUY': signed = t['qty'], else: signed = -t['qty']", "key = (t['account'], t['symbol'])"],
 wrong=r'''
 TRADES = ""
 def parse_trades(text): return []
@@ -788,7 +851,7 @@ def positions(trades):
 work=r'''
 **Take it to work — Morning trade-file parser**
 - Point `parse_trades` at a sanitized export of your overnight trades / drop-copy file (`open("trades.csv").read()`).
-- Add a `bad_rows` list: wrap each row in `try/except ValueError` (Unit 2) and report line numbers you skipped.
+- Add a `bad_rows` list: wrap each row in `try/except ValueError` (coming up in the next unit) and report line numbers you skipped.
 - Compare `positions(today)` against yesterday's positions + today's trades and print any differences.
 - Output: a CSV of net positions by account/symbol you can paste into the risk deck.
 ''')

@@ -5,6 +5,15 @@ unit("u2", "Python Fluency Fundamentals", "Data structures & Big-O, functions, e
 lesson("u2l1", "Data structures & Big-O: finding duplicate trades fast",
 "Detect duplicate trade IDs and unmatched trades in a 2-million-row drop copy without waiting minutes.",
 r'''
+> **New in this lesson** (builds on Python from Zero and Python on a Trading Desk)
+>
+> - **Big-O:** a way to describe how much slower code gets as the data grows (explained below).
+> - **`from collections import Counter`:** loads just one tool, `Counter`, from the `collections` module (like `import math`, but you then write `Counter(...)` instead of `collections.Counter(...)`).
+> - **Generator expression:** `sum(1 for i in ids if i in s)` is a comprehension without the brackets, fed straight into `sum`. It counts the items that match.
+> - **`_` as a name:** means "I don't need this value", e.g. `for _, sym in trades:`.
+> - **Set operations:** `a - b`, `a & b`, `a ^ b` (below). **`time.time()`:** the current time in seconds, used to time code.
+> - **Desk words:** a **drop copy** is the exchange's copy of every fill; **recon** (reconciliation) means checking two records agree.
+
 Picking the right container is the #1 performance lever in everyday Python.
 
 | Operation | list | set / dict |
@@ -119,6 +128,15 @@ def recon_ids(internal, clearing):
 lesson("u2l2", "Functions in depth: keyword args, lambdas, pitfalls",
 "Build reusable helpers (bps conversion, slippage, ranking) that every script on the desk can import.",
 r'''
+> **New in this lesson** (builds on Python from Zero and Python on a Trading Desk)
+>
+> - **Desk words:** a **basis point (bp)** is 0.01% (1/10,000). **Slippage** = how far your fill price was from the price when the order arrived, in bps; positive means it cost you.
+> - **Keyword arguments:** pass inputs by name, `f(side="SELL")`, so the order doesn't matter and the call explains itself.
+> - **Returning several values:** `return total, worst` returns a tuple; unpack it with `t, w = f(x)`.
+> - **`*args` / `**kwargs`:** collect any number of extra inputs (by position / by name).
+> - **`None` checks:** `if book is None:` tests for Python's "nothing" value.
+> - **Side effect:** anything a function does besides returning a value (printing, changing a list passed in).
+
 ```python
 def slippage_bps(fill_px, arrival_px, side="BUY"):
     sign = 1 if side == "BUY" else -1

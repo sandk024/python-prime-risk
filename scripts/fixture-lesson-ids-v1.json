@@ -1,0 +1,585 @@
+{
+"u1l1": {
+"unit": "u1",
+"exercises": [
+"Crude oil P&L",
+"ES ticks on a short"
+],
+"quiz": 1
+},
+"u1l2": {
+"unit": "u1",
+"exercises": [
+"Parse a trade line",
+"Build a confirm string"
+],
+"quiz": 1
+},
+"u1l3": {
+"unit": "u1",
+"exercises": [
+"Weekly P&L stats",
+"Max drawdown"
+],
+"quiz": 1
+},
+"u1l4": {
+"unit": "u1",
+"exercises": [
+"Net positions",
+"Gross notional by symbol"
+],
+"quiz": 1
+},
+"u1l5": {
+"unit": "u1",
+"exercises": [
+"margin_status()",
+"call_amount() with MTA and rounding"
+],
+"quiz": 1
+},
+"u1l6": {
+"unit": "u1",
+"exercises": [
+"Filter the blotter",
+"Lookup table with zip"
+],
+"quiz": 1
+},
+"u1l7": {
+"unit": "u1",
+"exercises": [
+"parse_trades(text)",
+"positions(trades)"
+],
+"quiz": 1
+},
+"u1cp": {
+"unit": "u1",
+"exercises": [
+"Net positions from a messy blotter",
+"Margin calls, sorted"
+],
+"quiz": 6
+},
+"u2l1": {
+"unit": "u2",
+"exercises": [
+"find_duplicates(ids)",
+"Recon with sets"
+],
+"quiz": 1
+},
+"u2l2": {
+"unit": "u2",
+"exercises": [
+"slippage_bps()",
+"top_n() with a safe default"
+],
+"quiz": 1
+},
+"u2l3": {
+"unit": "u2",
+"exercises": [
+"parse_qty(text)",
+"load_rows(lines)"
+],
+"quiz": 1
+},
+"u2l4": {
+"unit": "u2",
+"exercises": [
+"Write & read positions.csv",
+"summary_json(rows)"
+],
+"quiz": 1
+},
+"u2l5": {
+"unit": "u2",
+"exercises": [
+"add_business_days()",
+"third_friday() and days_to_expiry()"
+],
+"quiz": 1
+},
+"u2l6": {
+"unit": "u2",
+"exercises": [
+"Position dataclass",
+"Account with a list of positions"
+],
+"quiz": 1
+},
+"u2l7": {
+"unit": "u2",
+"exercises": [
+"Refactor into clean, typed functions",
+"Early returns"
+],
+"quiz": 1
+},
+"u2l8": {
+"unit": "u2",
+"exercises": [
+"Write tests that catch bugs",
+"Find and fix the bug"
+],
+"quiz": 1
+},
+"u2l9": {
+"unit": "u2",
+"exercises": [
+"to_book(rows)",
+"breaks(internal, clearing)"
+],
+"quiz": 1
+},
+"u2cp": {
+"unit": "u2",
+"exercises": [
+"Parse confirms with error reporting",
+"Settlement date with holidays"
+],
+"quiz": 6
+},
+"u3l1": {
+"unit": "u3",
+"exercises": [
+"Quick questions",
+"Largest positions"
+],
+"quiz": 1
+},
+"u3l2": {
+"unit": "u3",
+"exercises": [
+"Notional & P&L columns",
+"Classify with np.select"
+],
+"quiz": 1
+},
+"u3l3": {
+"unit": "u3",
+"exercises": [
+"Account summary",
+"Account \u00d7 product grid"
+],
+"quiz": 1
+},
+"u3l4": {
+"unit": "u3",
+"exercises": [
+"Price the book, find gaps",
+"Recon with an outer join"
+],
+"quiz": 1
+},
+"u3l5": {
+"unit": "u3",
+"exercises": [
+"Running position & share of exposure",
+"Day-over-day margin change (LAG)"
+],
+"quiz": 1
+},
+"u3l6": {
+"unit": "u3",
+"exercises": [
+"clean_fills(raw)",
+"Flag price outliers"
+],
+"quiz": 1
+},
+"u3l7": {
+"unit": "u3",
+"exercises": [
+"Order-level slippage",
+"Weighted slippage by algo"
+],
+"quiz": 1
+},
+"u3l8": {
+"unit": "u3",
+"exercises": [
+"build_report()",
+"Write the file + totals row"
+],
+"quiz": 1
+},
+"u3cp": {
+"unit": "u3",
+"exercises": [
+"Trade recon breaks",
+"Concentration: share of gross by account"
+],
+"quiz": 6
+},
+"u4l1": {
+"unit": "u4",
+"exercises": [
+"Scenario P&L",
+"Masks & where"
+],
+"quiz": 1
+},
+"u4l2": {
+"unit": "u4",
+"exercises": [
+"Compute returns",
+"Returns in pandas"
+],
+"quiz": 1
+},
+"u4l3": {
+"unit": "u4",
+"exercises": [
+"ann_vol() and dollar vol",
+"Rolling vol spike"
+],
+"quiz": 1
+},
+"u4l4": {
+"unit": "u4",
+"exercises": [
+"Correlation matrix",
+"Portfolio $ vol"
+],
+"quiz": 1
+},
+"u4l5": {
+"unit": "u4",
+"exercises": [
+"vol_monitor(rets)"
+],
+"quiz": 1
+},
+"u4cp": {
+"unit": "u4",
+"exercises": [
+"Scenario P&L matrix",
+"EWMA volatility (RiskMetrics)"
+],
+"quiz": 6
+},
+"u5l1": {
+"unit": "u5",
+"exercises": [
+"VM by account",
+"Margin call to initial"
+],
+"quiz": 1
+},
+"u5l2": {
+"unit": "u5",
+"exercises": [
+"scenarios(psr)",
+"Portfolio scanning with risk arrays"
+],
+"quiz": 1
+},
+"u5l3": {
+"unit": "u5",
+"exercises": [
+"intra_spread_charge()",
+"span_requirement()"
+],
+"quiz": 1
+},
+"u5l4": {
+"unit": "u5",
+"exercises": [
+"haircut_for(asset)",
+"pool_value() with a concentration cap"
+],
+"quiz": 1
+},
+"u5l5": {
+"unit": "u5",
+"exercises": [
+"allocate(assets, requirement)",
+"Annual cost & savings"
+],
+"quiz": 1
+},
+"u5l6": {
+"unit": "u5",
+"exercises": [
+"Account excess/deficit",
+"Client-level calls with netting agreements"
+],
+"quiz": 1
+},
+"u5l7": {
+"unit": "u5",
+"exercises": [
+"call_report(acct)",
+"Draft the call notice"
+],
+"quiz": 1
+},
+"u5cp": {
+"unit": "u5",
+"exercises": [
+"Collateral value with eligibility & a concentration cap",
+"Call with minimum transfer amount & rounding"
+],
+"quiz": 6
+},
+"u6l1": {
+"unit": "u6",
+"exercises": [
+"interest()",
+"Accrued-to-date across a book"
+],
+"quiz": 1
+},
+"u6l2": {
+"unit": "u6",
+"exercises": [
+"repo_cash() and repurchase_price()",
+"Book funding metrics",
+"Carry on a financed bond"
+],
+"quiz": 1
+},
+"u6l3": {
+"unit": "u6",
+"exercises": [
+"Bucket the book",
+"Ladder with cumulative gap"
+],
+"quiz": 1
+},
+"u6l4": {
+"unit": "u6",
+"exercises": [
+"Net balance sheet",
+"What-if: move a trade to FICC"
+],
+"quiz": 1
+},
+"u6l5": {
+"unit": "u6",
+"exercises": [
+"fx_forward() & points",
+"Implied USD rate & basis"
+],
+"quiz": 1
+},
+"u6l6": {
+"unit": "u6",
+"exercises": [
+"Counterparty concentration",
+"funding_report()"
+],
+"quiz": 1
+},
+"u6cp": {
+"unit": "u6",
+"exercises": [
+"Repo cash flows",
+"FX forward & swap points"
+],
+"quiz": 6
+},
+"u7l1": {
+"unit": "u7",
+"exercises": [
+"hist_var()",
+"VaR by account & diversification"
+],
+"quiz": 1
+},
+"u7l2": {
+"unit": "u7",
+"exercises": [
+"param_var()",
+"Parametric vs historical"
+],
+"quiz": 1
+},
+"u7l3": {
+"unit": "u7",
+"exercises": [
+"expected_shortfall()",
+"Subadditivity check"
+],
+"quiz": 1
+},
+"u7l4": {
+"unit": "u7",
+"exercises": [
+"Stress matrix",
+"Stress vs excess"
+],
+"quiz": 1
+},
+"u7l5": {
+"unit": "u7",
+"exercises": [
+"Reportable positions",
+"Limit utilization & OI concentration"
+],
+"quiz": 1
+},
+"u7l6": {
+"unit": "u7",
+"exercises": [
+"black76()",
+"Greeks & futures-equivalent delta"
+],
+"quiz": 1
+},
+"u7l7": {
+"unit": "u7",
+"exercises": [
+"limit_monitor()",
+"One-line risk summary"
+],
+"quiz": 1
+},
+"u7cp": {
+"unit": "u7",
+"exercises": [
+"VaR and ES from scenario P&L",
+"Limit utilization report"
+],
+"quiz": 6
+},
+"u8l1": {
+"unit": "u8",
+"exercises": [
+"enrich()",
+"account_margin()"
+],
+"quiz": 1
+},
+"u8l2": {
+"unit": "u8",
+"exercises": [
+"stress_by_account()",
+"build_report()"
+],
+"quiz": 1
+},
+"u8l3": {
+"unit": "u8",
+"exercises": [
+"Markdown table helper",
+"Tests for the report"
+],
+"quiz": 1
+},
+"u9l1": {
+"unit": "u9",
+"exercises": [
+"two_sum()",
+"first_unique()",
+"group_by_key()"
+],
+"quiz": 1
+},
+"u9l2": {
+"unit": "u9",
+"exercises": [
+"top_k_frequent()",
+"k_largest_stream()",
+"merge_feeds()"
+],
+"quiz": 1
+},
+"u9l3": {
+"unit": "u9",
+"exercises": [
+"merge_sorted()",
+"pair_sum_sorted()",
+"dedupe_sorted()"
+],
+"quiz": 1
+},
+"u9l4": {
+"unit": "u9",
+"exercises": [
+"valid_brackets()",
+"fifo_realized_pnl()",
+"days_until_higher() (monotonic stack)"
+],
+"quiz": 1
+},
+"u9l5": {
+"unit": "u9",
+"exercises": [
+"merge_intervals()",
+"peak_concurrency()",
+"downtime_minutes()"
+],
+"quiz": 1
+},
+"u9l6": {
+"unit": "u9",
+"exercises": [
+"worst_k_day_pnl()",
+"best_trade()",
+"trades_in_window()"
+],
+"quiz": 1
+},
+"u9l7": {
+"unit": "u9",
+"exercises": [
+"within_hops()",
+"entity_groups() (connected components)",
+"count_clusters() (grid BFS)"
+],
+"quiz": 1
+},
+"u9l8": {
+"unit": "u9",
+"exercises": [
+"Resolve the counterparty",
+"Exposure to the failing counterparty",
+"Write the recommendation"
+],
+"quiz": 2
+},
+"u9l9": {
+"unit": "u9",
+"exercises": [
+"Launch cadence & booster turnaround",
+"Supplier scorecard",
+"Parts at risk for a launch"
+],
+"quiz": 1
+},
+"u9l10": {
+"unit": "u9",
+"exercises": [
+"Problem 1: rate-limit breaches",
+"Problem 2: desk P&L attribution"
+],
+"quiz": 1
+},
+"u9cp": {
+"unit": "u9",
+"exercises": [
+"Longest profitable streak",
+"Top-k counterparties by net exposure"
+],
+"quiz": 6
+},
+"fa1": {
+"unit": "final",
+"exercises": [
+"1. Parse & aggregate fills",
+"2. A validated Position class",
+"3. Margin by account (pandas)",
+"4. Rolling vol regime (numpy/pandas)",
+"5. Repo book weighted-average rate",
+"6. VaR, ES and limit breach",
+"7. Merge trading halts",
+"8. Contagion within two hops"
+],
+"quiz": 8
+}
+}
