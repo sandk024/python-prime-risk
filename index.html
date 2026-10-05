@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Python for Prime Risk</title>
+<meta name="description" content="Daily Python lessons for prime brokerage, clearing and financing risk — runs offline on your phone.">
+<meta name="theme-color" content="#010601">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PyRisk">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <a href="#/" class="brand" aria-label="Home"><span class="logo">Py</span><span>Prime Risk</span></a>
+  <button id="offlineBadge" class="badge" type="button" aria-live="polite">Checking offline…</button>
+</header>
+<main id="app" tabindex="-1"><p class="muted pad">Loading…</p></main>
+<div id="kbdbar" class="kbdbar" hidden role="toolbar" aria-label="Code symbols"></div>
+<div id="toast" class="toast" hidden role="status"></div>
+<button id="updatebar" class="updatebar" type="button" hidden>✨ Update ready: tap to reload</button>
+<script src="precache.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
